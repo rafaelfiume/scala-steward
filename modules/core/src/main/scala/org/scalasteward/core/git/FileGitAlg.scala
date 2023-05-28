@@ -22,7 +22,7 @@ import cats.syntax.all._
 import org.http4s.Uri
 import org.scalasteward.core.application.Config.GitCfg
 import org.scalasteward.core.git.FileGitAlg.{dotdot, gitCmd}
-import org.scalasteward.core.io.process.SlurpOptions
+import org.scalasteward.core.io.process.{ProcessFailedException, SlurpOptions}
 import org.scalasteward.core.io.{FileAlg, ProcessAlg, WorkspaceAlg}
 import org.scalasteward.core.util.Nel
 
@@ -47,18 +47,26 @@ final class FileGitAlg[F[_]](config: GitCfg)(implicit
   override def checkoutBranch(repo: File, branch: Branch): F[Unit] =
     git_("checkout", branch.name)(repo).void
 
+  override def checkIgnore(repo: File, file: String): F[Boolean] =
+    git_("check-ignore", file)(repo)
+      .as(true)
+      .recover { case ex: ProcessFailedException if ex.exitValue === 1 => false }
+
   override def clone(repo: File, url: Uri): F[Unit] =
     for {
       rootDir <- workspaceAlg.rootDir
-      _ <- git_("clone", url.toString, repo.pathAsString)(rootDir)
+      _ <- git_("clone", "-c", "clone.defaultRemoteName=origin", url.toString, repo.pathAsString)(
+        rootDir
+      )
     } yield ()
 
   override def cloneExists(repo: File): F[Boolean] =
     fileAlg.isDirectory(repo / ".git")
 
   override def commitAll(repo: File, message: CommitMsg): F[Commit] = {
-    val messages = message.toNel.foldMap(m => List("-m", m))
-    git_("commit" :: "--all" :: sign :: messages: _*)(repo) >>
+    val messages = message.paragraphs.foldMap(m => List("-m", m))
+    val trailers = message.trailers.foldMap { case (k, v) => List("--trailer", s"$k=$v") }
+    git_("commit" :: "--all" :: sign :: messages ++ trailers: _*)(repo) >>
       latestSha1(repo, Branch.head).map(Commit.apply)
   }
 

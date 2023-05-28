@@ -117,10 +117,12 @@ lazy val core = myCrossProject("core")
       Dependencies.circeRefined,
       Dependencies.commonsIo,
       Dependencies.coursierCore,
+      Dependencies.coursierSbtMaven,
       Dependencies.cron4sCore,
       Dependencies.decline,
       Dependencies.fs2Core,
       Dependencies.fs2Io,
+      Dependencies.gitignore,
       Dependencies.http4sCirce,
       Dependencies.http4sClient,
       Dependencies.http4sCore,
@@ -332,26 +334,47 @@ lazy val metadataSettings = Def.settings(
 
 lazy val dockerSettings = Def.settings(
   dockerBaseImage := Option(System.getenv("DOCKER_BASE_IMAGE"))
-    .getOrElse("adoptopenjdk/openjdk11:alpine"),
+    .getOrElse("eclipse-temurin:11-alpine"),
   dockerCommands ++= {
+    val curl = "curl -fL --output"
     val binDir = "/usr/local/bin"
     val sbtVer = sbtVersion.value
     val sbtTgz = s"sbt-$sbtVer.tgz"
-    val sbtUrl = s"https://github.com/sbt/sbt/releases/download/v$sbtVer/$sbtTgz"
-    val millBin = s"$binDir/mill"
+    val installSbt = Seq(
+      s"$curl $sbtTgz https://github.com/sbt/sbt/releases/download/v$sbtVer/$sbtTgz",
+      s"tar -xf $sbtTgz",
+      s"rm -f $sbtTgz"
+    ).mkString(" && ")
     val millVer = Dependencies.millVersion
-    val millUrl =
-      s"https://github.com/lihaoyi/mill/releases/download/${millVer.split("-").head}/$millVer"
-    val coursierBin = s"$binDir/coursier"
+    val millBin = s"$binDir/mill"
+    val installMill = Seq(
+      s"$curl $millBin https://github.com/lihaoyi/mill/releases/download/${millVer.split("-").head}/$millVer",
+      s"chmod +x $millBin"
+    ).mkString(" && ")
+    val csBin = s"$binDir/cs"
+    val installCoursier = Seq(
+      s"$curl $csBin.gz https://github.com/coursier/coursier/releases/download/v${Dependencies.coursierCore.revision}/cs-x86_64-pc-linux-static.gz",
+      s"gunzip $csBin.gz",
+      s"chmod +x $csBin"
+    ).mkString(" && ")
+    val scalaCliBin = s"$binDir/scala-cli"
+    val installScalaCli = Seq(
+      s"$curl $scalaCliBin.gz https://github.com/Virtuslab/scala-cli/releases/latest/download/scala-cli-x86_64-pc-linux-static.gz",
+      s"gunzip $scalaCliBin.gz",
+      s"chmod +x $scalaCliBin"
+    ).mkString(" && ")
     Seq(
       Cmd("USER", "root"),
       Cmd("RUN", "apk --no-cache add bash git ca-certificates curl maven openssh nodejs npm"),
-      Cmd("RUN", s"wget $sbtUrl && tar -xf $sbtTgz && rm -f $sbtTgz"),
-      Cmd("RUN", s"curl -L $millUrl > $millBin && chmod +x $millBin"),
-      Cmd("RUN", "curl -sSLf https://virtuslab.github.io/scala-cli-packages/scala-setup.sh | sh"),
-      Cmd("RUN", s"curl -L https://git.io/coursier-cli > $coursierBin && chmod +x $coursierBin"),
-      Cmd("RUN", s"$coursierBin install --install-dir $binDir scalafix scalafmt"),
-      Cmd("RUN", "npm install --global yarn")
+      Cmd("RUN", installSbt),
+      Cmd("RUN", installMill),
+      Cmd("RUN", installCoursier),
+      Cmd("RUN", installScalaCli),
+      Cmd("RUN", s"$csBin install --install-dir $binDir scalafix scalafmt"),
+      Cmd("RUN", "npm install --global yarn"),
+      // Ensure binaries are in PATH
+      Cmd("RUN", "echo $PATH"),
+      Cmd("RUN", "which cs mill mvn node npm sbt scala-cli scalafix scalafmt yarn")
     )
   },
   Docker / packageName := s"fthomas/${name.value}",

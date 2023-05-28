@@ -14,25 +14,19 @@
  * limitations under the License.
  */
 
-package org.scalasteward.core.forge.github
+package org.scalasteward.core.forge.gitea
 
 import org.http4s.Uri
+import org.scalasteward.core.git.Branch
 import org.scalasteward.core.data.Repo
 import org.scalasteward.core.forge.data.PullRequestNumber
-import org.scalasteward.core.git.Branch
 
 class Url(apiHost: Uri) {
-  def branches(repo: Repo, branch: Branch): Uri =
+  def repoBranch(repo: Repo, branch: Branch): Uri =
     repos(repo) / "branches" / branch.name
 
   def forks(repo: Repo): Uri =
     repos(repo) / "forks"
-
-  def listPullRequests(repo: Repo, head: String, base: Branch): Uri =
-    pulls(repo)
-      .withQueryParam("head", head)
-      .withQueryParam("base", base.name)
-      .withQueryParam("state", "all")
 
   def pulls(repo: Repo): Uri =
     repos(repo) / "pulls"
@@ -40,18 +34,16 @@ class Url(apiHost: Uri) {
   def pull(repo: Repo, number: PullRequestNumber): Uri =
     repos(repo) / "pulls" / number.toString
 
-  def issueLabels(repo: Repo, number: PullRequestNumber): Uri =
+  def comments(repo: Repo, number: PullRequestNumber): Uri =
+    repos(repo) / "issues" / number.toString / "comments"
+
+  def labels(repo: Repo): Uri =
+    repos(repo) / "labels"
+
+  def pullRequestLabels(repo: Repo, number: PullRequestNumber): Uri =
     repos(repo) / "issues" / number.toString / "labels"
 
   def repos(repo: Repo): Uri =
     apiHost / "repos" / repo.owner / repo.repo
 
-  def comments(repo: Repo, number: PullRequestNumber): Uri =
-    repos(repo) / "issues" / number.toString / "comments"
-
-  def assignees(repo: Repo, number: PullRequestNumber): Uri =
-    repos(repo) / "issues" / number.toString / "assignees"
-
-  def reviewers(repo: Repo, number: PullRequestNumber): Uri =
-    repos(repo) / "pulls" / number.toString / "requested_reviewers"
 }

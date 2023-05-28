@@ -15,25 +15,23 @@ class SbtAlgTest extends FunSuite {
   private val workspace = workspaceAlg.rootDir.unsafeRunSync()
 
   test("getDependencies") {
-    val repo = Repo("typelevel", "cats")
+    val repo = Repo("sbt-alg", "test-1")
     val buildRoot = BuildRoot(repo, ".")
     val repoDir = workspaceAlg.repoDir(repo).unsafeRunSync()
-    val files = Map(repoDir / "project" / "build.properties" -> "sbt.version=1.3.6")
-    val initial = MockState.empty.copy(files = files)
+    val initial = MockState.empty
+      .addFiles(repoDir / "project" / "build.properties" -> "sbt.version=1.3.11")
+      .unsafeRunSync()
     val state = sbtAlg.getDependencies(buildRoot).runS(initial).unsafeRunSync()
     val expected = initial.copy(
       trace = Vector(
         Cmd("read", s"$repoDir/project/build.properties"),
+        Cmd("test", "-d", s"$repoDir/project"),
+        Cmd("test", "-d", s"$repoDir/project/project"),
         Cmd("read", "classpath:StewardPlugin_1_3_11.scala"),
         Cmd("write", s"$repoDir/project/scala-steward-StewardPlugin_1_3_11.scala"),
         Cmd("write", s"$repoDir/project/project/scala-steward-StewardPlugin_1_3_11.scala"),
-        Cmd(
-          repoDir.toString,
-          "firejail",
-          "--quiet",
-          s"--whitelist=$repoDir",
-          "--env=VAR1=val1",
-          "--env=VAR2=val2",
+        Cmd.execSandboxed(
+          repoDir,
           "sbt",
           "-Dsbt.color=false",
           "-Dsbt.log.noformat=true",
@@ -70,13 +68,8 @@ class SbtAlgTest extends FunSuite {
           s"$workspace/store/versions/v2/https/repo1.maven.org/maven2/ch/epfl/scala/sbt-scalafix_2.12_1.0/versions.json"
         ),
         Cmd("write", s"$repoDir/project/scala-steward-sbt-scalafix.sbt"),
-        Cmd(
-          repoDir.toString,
-          "firejail",
-          "--quiet",
-          s"--whitelist=$repoDir",
-          "--env=VAR1=val1",
-          "--env=VAR2=val2",
+        Cmd.execSandboxed(
+          repoDir,
           "sbt",
           "-Dsbt.color=false",
           "-Dsbt.log.noformat=true",
@@ -114,13 +107,8 @@ class SbtAlgTest extends FunSuite {
         ),
         Cmd("write", s"$repoDir/project/scala-steward-sbt-scalafix.sbt"),
         Cmd("write", s"$repoDir/scala-steward-scalafix-options.sbt"),
-        Cmd(
-          repoDir.toString,
-          "firejail",
-          "--quiet",
-          s"--whitelist=$repoDir",
-          "--env=VAR1=val1",
-          "--env=VAR2=val2",
+        Cmd.execSandboxed(
+          repoDir,
           "sbt",
           "-Dsbt.color=false",
           "-Dsbt.log.noformat=true",

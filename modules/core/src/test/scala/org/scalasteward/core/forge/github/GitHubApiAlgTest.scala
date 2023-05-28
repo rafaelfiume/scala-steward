@@ -13,7 +13,6 @@ import org.scalasteward.core.application.Config.GitHubCfg
 import org.scalasteward.core.data.Repo
 import org.scalasteward.core.forge.data._
 import org.scalasteward.core.forge.{ForgeSelection, ForgeType}
-import org.scalasteward.core.git.Sha1.HexString
 import org.scalasteward.core.git.{Branch, Sha1}
 import org.scalasteward.core.mock.MockConfig.config
 import org.scalasteward.core.mock.MockContext.context.httpJsonClient
@@ -108,6 +107,22 @@ class GitHubApiAlgTest extends CatsEffectSuite with Http4sDsl[MockEff] {
             "title": "new-feature"
             } """)
 
+    case POST -> Root / "repos" / "fthomas" / "cant-assign-reviewers" / "pulls" =>
+      Created(json"""  {
+            "html_url": "https://github.com/octocat/Hello-World/pull/14",
+            "state": "open",
+            "number": 14,
+            "title": "new-feature"
+            } """)
+
+    case POST -> Root / "repos" / "fthomas" / "cant-add-labels" / "pulls" =>
+      Created(json"""  {
+            "html_url": "https://github.com/octocat/Hello-World/pull/13",
+            "state": "open",
+            "number": 13,
+            "title": "can't add labels to me"
+            } """)
+
     case POST -> Root / "repos" / "fthomas" / "base.g8" / "issues" / IntVar(_) / "labels" =>
       // Response taken from https://docs.github.com/en/rest/reference/issues#labels, is ignored
       Created(json"""[
@@ -120,6 +135,25 @@ class GitHubApiAlgTest extends CatsEffectSuite with Http4sDsl[MockEff] {
             "color": "f29513",
             "default": true
           }]""")
+
+    case POST -> Root / "repos" / "fthomas" / "cant-add-labels" / "issues" / "13" / "labels" =>
+      BadRequest("can't add labels")
+
+    case POST -> Root / "repos" / "fthomas" / "base.g8" / "issues" / IntVar(_) / "assignees" =>
+      Created(json"{}")
+
+    case POST ->
+        Root / "repos" / "fthomas" / "base.g8" / "pulls" / IntVar(_) / "requested_reviewers" =>
+      Created(json"{}")
+
+    case POST -> Root / "repos" / "fthomas" / "cant-assign-reviewers"
+        / "issues" / IntVar(_) / "assignees" =>
+      BadRequest()
+
+    case POST ->
+        Root / "repos" / "fthomas" / "cant-assign-reviewers"
+        / "pulls" / IntVar(_) / "requested_reviewers" =>
+      BadRequest()
 
     case _ => NotFound()
   }
@@ -172,12 +206,12 @@ class GitHubApiAlgTest extends CatsEffectSuite with Http4sDsl[MockEff] {
 
   private val defaultBranch = BranchOut(
     Branch("master"),
-    CommitOut(Sha1(HexString("07eb2a203e297c8340273950e98b2cab68b560c1")))
+    CommitOut(Sha1.unsafeFrom("07eb2a203e297c8340273950e98b2cab68b560c1"))
   )
 
   private val defaultCustomBranch = BranchOut(
     Branch("custom"),
-    CommitOut(Sha1(HexString("12ea4559063c74184861afece9eeff5ca9d33db3")))
+    CommitOut(Sha1.unsafeFrom("12ea4559063c74184861afece9eeff5ca9d33db3"))
   )
 
   test("createForkOrGetRepo") {
@@ -238,14 +272,94 @@ class GitHubApiAlgTest extends CatsEffectSuite with Http4sDsl[MockEff] {
 
   test("createPullRequest") {
     val data = NewPullRequestData(
-      "new-feature",
-      "body",
-      "aaa",
-      Branch("master"),
-      Nil
+      title = "new-feature",
+      body = "body",
+      head = "aaa",
+      base = Branch("master"),
+      labels = Nil,
+      assignees = Nil,
+      reviewers = Nil
     )
     val pr = gitHubApiAlg.createPullRequest(repo, data).runA(state)
     assertIO(pr, pullRequest)
+  }
+
+  test("createPullRequest with assignees and reviewers") {
+    val data = NewPullRequestData(
+      title = "new-feature",
+      body = "body",
+      head = "aaa",
+      base = Branch("master"),
+      labels = Nil,
+      assignees = List("foo"),
+      reviewers = List("bar")
+    )
+    val pr = gitHubApiAlg.createPullRequest(repo, data).runA(state)
+    assertIO(pr, pullRequest)
+  }
+
+  test("createPullRequest with assignees and reviewers should not fail if can't assign") {
+    val data = NewPullRequestData(
+      title = "new-feature",
+      body = "body",
+      head = "aaa",
+      base = Branch("master"),
+      labels = Nil,
+      assignees = List("foo"),
+      reviewers = List("bar")
+    )
+    val expectedPullRequestOut =
+      PullRequestOut(
+        uri"https://github.com/octocat/Hello-World/pull/14",
+        PullRequestState.Open,
+        PullRequestNumber(14),
+        "new-feature"
+      )
+
+    val pullRequestOut =
+      gitHubApiAlg.createPullRequest(repo.copy(repo = "cant-assign-reviewers"), data).runA(state)
+    assertIO(pullRequestOut, expectedPullRequestOut)
+  }
+
+  test("createPullRequest with labels") {
+    val data = NewPullRequestData(
+      title = "new-feature",
+      body = "body",
+      head = "aaa",
+      base = Branch("master"),
+      labels = List("foo", "bar"),
+      assignees = Nil,
+      reviewers = Nil
+    )
+    val pr = gitHubApiAlg.createPullRequest(repo, data).runA(state)
+    assertIO(pr, pullRequest)
+  }
+
+  test("createPullRequest should fail when can't add labels") {
+    val data = NewPullRequestData(
+      title = "new-feature",
+      body = "body",
+      head = "aaa",
+      base = Branch("master"),
+      labels = List("foo", "bar"),
+      assignees = Nil,
+      reviewers = Nil
+    )
+    val error =
+      gitHubApiAlg
+        .createPullRequest(repo.copy(repo = "cant-add-labels"), data)
+        .runA(state)
+        .attempt
+        .map(_.swap.map(_.getMessage))
+    val expectedError =
+      """|uri: http://example.com/repos/fthomas/cant-add-labels/issues/13/labels
+         |method: POST
+         |status: 400 Bad Request
+         |headers:
+         |  Content-Type: text/plain; charset=UTF-8
+         |  Content-Length: 16
+         |body: can't add labels""".stripMargin
+    assertIO(error, Right(expectedError))
   }
 
   test("listPullRequests") {
@@ -270,10 +384,4 @@ class GitHubApiAlgTest extends CatsEffectSuite with Http4sDsl[MockEff] {
     assertIO(comment, Comment("Superseded by #1234"))
   }
 
-  test("labelPullRequest") {
-    gitHubApiAlg
-      .labelPullRequest(repo, PullRequestNumber(1347), List("A", "B"))
-      .runA(state)
-      .assert
-  }
 }

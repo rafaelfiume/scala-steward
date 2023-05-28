@@ -431,6 +431,17 @@ class RewriteTest extends FunSuite {
     runApplyUpdate(update, original, expected)
   }
 
+  // https://github.com/scala-steward-org/scala-steward/pull/3016
+  test("artifact change with multiple artifactId cross names") {
+    val update = ("com.pauldijou".g % Nel.of(
+      ("jwt-core", "jwt-core_2.12").a,
+      ("jwt-core", "jwt-core_2.13").a
+    ) % "5.0.0" %> "9.2.0").single.copy(newerGroupId = Some("com.github.jwt-scala".g))
+    val original = Map("build.sbt" -> """ "com.pauldijou" %% "jwt-core" % "5.0.0" """)
+    val expected = Map("build.sbt" -> """ "com.github.jwt-scala" %% "jwt-core" % "9.2.0" """)
+    runApplyUpdate(update, original, expected)
+  }
+
   // https://github.com/scala-steward-org/scala-steward/pull/566
   test("prevent exception: named capturing group is missing trailing '}'") {
     val update =
@@ -853,6 +864,15 @@ class RewriteTest extends FunSuite {
       ("org.scalameta".g % ("scalafmt-core", "scalafmt-core_2.12").a % "2.0.0" %> "2.0.1").single
     val original = Map(scalafmtConfName -> """version = "2.0.0" """)
     val expected = Map(scalafmtConfName -> """version = "2.0.1" """)
+    runApplyUpdate(update, original, expected)
+  }
+
+  // https://github.com/scala-steward-org/scala-steward/issues/2947
+  test(".scalafmt.conf in a subdirectory") {
+    val update =
+      ("org.scalameta".g % ("scalafmt-core", "scalafmt-core_2.12").a % "2.0.0" %> "2.0.1").single
+    val original = Map(s"foo/$scalafmtConfName" -> """version = "2.0.0" """)
+    val expected = Map(s"foo/$scalafmtConfName" -> """version = "2.0.1" """)
     runApplyUpdate(update, original, expected)
   }
 
