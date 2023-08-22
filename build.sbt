@@ -21,7 +21,7 @@ val moduleCrossPlatformMatrix: Map[String, List[Platform]] = Map(
   "dummy" -> List(JVMPlatform)
 )
 
-val Scala213 = "2.13.10"
+val Scala213 = "2.13.11"
 
 /// sbt-typelevel configuration
 
@@ -212,8 +212,6 @@ lazy val core = myCrossProject("core")
     // Uncomment for remote debugging:
     // run / javaOptions += "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005",
     Test / fork := true,
-    Test / testOptions +=
-      Tests.Cleanup(() => Path(file(Properties.tmpDir) / "scala-steward").deleteRecursively()),
     Compile / resourceGenerators += Def.task {
       val outDir = (Compile / resourceManaged).value
       def downloadPlugin(v: String): File = {
@@ -248,8 +246,12 @@ lazy val docs = myCrossProject("docs")
       try git.runner.value.apply("diff", "--quiet", outDir)(rootDir, streams.value.log)
       catch {
         case t: Throwable =>
-          val msg = s"Docs in $inDir and $outDir are out of sync." +
-            " Run 'sbt docs/mdoc' and commit the changes to fix this."
+          val diff = git.runner.value.apply("diff", outDir)(rootDir, streams.value.log)
+          val msg = s"""|Docs in $inDir and $outDir are out of sync.
+                        |Run 'sbt docs/mdoc' and commit the changes to fix this.
+                        |The diff is:
+                        |$diff
+                        |""".stripMargin
           throw new Throwable(msg, t)
       }
       ()
@@ -265,7 +267,6 @@ lazy val dummy = myCrossProject("dummy")
   .settings(noPublishSettings)
   .settings(
     libraryDependencies ++= Seq(
-      Dependencies.millMain,
       Dependencies.scalaStewardMillPlugin
     )
   )
@@ -345,10 +346,14 @@ lazy val dockerSettings = Def.settings(
       s"tar -xf $sbtTgz",
       s"rm -f $sbtTgz"
     ).mkString(" && ")
-    val millVer = Dependencies.millVersion
+    val millVer = Dependencies.millScriptVersion
     val millBin = s"$binDir/mill"
+    val releasePageVersion = millVer.split("-") match {
+      case Array(v, m, _*) if m.startsWith("M") => s"${v}-${m}"
+      case Array(v, _*)                         => v
+    }
     val installMill = Seq(
-      s"$curl $millBin https://github.com/lihaoyi/mill/releases/download/${millVer.split("-").head}/$millVer",
+      s"$curl $millBin https://github.com/lihaoyi/mill/releases/download/${releasePageVersion}/$millVer",
       s"chmod +x $millBin"
     ).mkString(" && ")
     val csBin = s"$binDir/cs"
