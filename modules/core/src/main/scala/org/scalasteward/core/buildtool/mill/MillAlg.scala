@@ -22,14 +22,13 @@ import cats.syntax.all._
 import org.scalasteward.core.buildtool.mill.MillAlg._
 import org.scalasteward.core.buildtool.{BuildRoot, BuildToolAlg}
 import org.scalasteward.core.data._
-import org.scalasteward.core.edit.scalafix.ScalafixMigration
 import org.scalasteward.core.io.{FileAlg, ProcessAlg, WorkspaceAlg}
 import org.scalasteward.core.util.Nel
 import org.typelevel.log4cats.Logger
 
-final class MillAlg[F[_]](implicit
+final class MillAlg[F[_]](defaultResolver: Resolver)(implicit
     fileAlg: FileAlg[F],
-    logger: Logger[F],
+    override protected val logger: Logger[F],
     processAlg: ProcessAlg[F],
     workspaceAlg: WorkspaceAlg[F],
     F: MonadCancelThrow[F]
@@ -58,15 +57,9 @@ final class MillAlg[F[_]](implicit
     for {
       buildRootDir <- workspaceAlg.buildRootDir(buildRoot)
       millBuildVersion <- getMillVersion(buildRootDir)
-      extracted <-
-        if (isMillVersionGreaterOrEqual011(millBuildVersion)) runMill(buildRootDir)
-        else runMillUnder011(buildRootDir, millBuildVersion)
-      parsed <- F.fromEither(
-        parser.parseModules(extracted.dropWhile(!_.startsWith("{")).mkString("\n"))
-      )
-      dependencies = parsed.map(module => Scope(module.dependencies, module.repositories))
+      dependencies <- getProjectDependencies(buildRootDir, millBuildVersion)
       millBuildDeps = millBuildVersion.toSeq.map(version =>
-        Scope(List(millMainArtifact(version)), List(millMainResolver))
+        Scope(List(millMainArtifact(version)), List(defaultResolver))
       )
       millPluginDeps <- millBuildVersion match {
         case None        => F.pure(Seq.empty[Scope[List[Dependency]]])
@@ -74,10 +67,22 @@ final class MillAlg[F[_]](implicit
       }
     } yield dependencies ++ millBuildDeps ++ millPluginDeps
 
-  override def runMigration(buildRoot: BuildRoot, migration: ScalafixMigration): F[Unit] =
-    logger.warn(
-      s"Scalafix migrations are currently not supported in $name projects, see https://github.com/scala-steward-org/scala-steward/issues/2838 for details"
-    )
+  private def getProjectDependencies(
+      buildRootDir: File,
+      millBuildVersion: Option[Version]
+  ): F[List[Scope.Dependencies]] =
+    for {
+      extracted <-
+        if (isMillVersionGreaterOrEqual011(millBuildVersion)) runMill(buildRootDir)
+        else runMillUnder011(buildRootDir, millBuildVersion)
+      parsed <- F.fromEither(
+        parser.parseModules(extracted.dropWhile(!_.startsWith("{")).mkString("\n"))
+      )
+      dependencies = parsed.map(module => Scope(module.dependencies, module.repositories))
+    } yield dependencies
+
+  override protected val scalafixIssue: Option[String] =
+    Some("https://github.com/scala-steward-org/scala-steward/issues/2838")
 
   private def getMillVersion(buildRootDir: File): F[Option[Version]] =
     for {
@@ -95,9 +100,9 @@ final class MillAlg[F[_]](implicit
       buildRootDir: File
   ): F[Seq[Scope[List[Dependency]]]] =
     for {
-      buildConent <- fileAlg.readFile(buildRootDir / "build.sc")
-      deps = buildConent.toList.map(content =>
-        Scope(parser.parseMillPluginDeps(content, millVersion), List(millMainResolver))
+      buildContent <- fileAlg.readFile(buildRootDir / "build.sc")
+      deps = buildContent.toList.map(content =>
+        Scope(parser.parseMillPluginDeps(content, millVersion), List(defaultResolver))
       )
     } yield deps
 }
@@ -129,7 +134,6 @@ object MillAlg {
 
   val extractDeps: String = "org.scalasteward.mill.plugin.StewardPlugin/extractDeps"
 
-  private val millMainResolver: Resolver = Resolver.mavenCentral
   private val millMainGroupId = GroupId("com.lihaoyi")
   private val millMainArtifactId = ArtifactId("mill-main", "mill-main_2.13")
 

@@ -31,7 +31,7 @@ import org.scalasteward.core.git.{Branch, Commit, GitAlg}
 import org.scalasteward.core.repoconfig.PullRequestUpdateStrategy
 import org.scalasteward.core.util.logger.LoggerOps
 import org.scalasteward.core.util.{Nel, UrlChecker}
-import org.scalasteward.core.{forge, git, util}
+import org.scalasteward.core.{git, util}
 import org.typelevel.log4cats.Logger
 
 final class NurtureAlg[F[_]](config: ForgeCfg)(implicit
@@ -92,7 +92,7 @@ final class NurtureAlg[F[_]](config: ForgeCfg)(implicit
   private def processUpdate(data: UpdateData): F[ProcessResult] =
     for {
       _ <- logger.info(s"Process update ${data.update.show}")
-      head = forge.listingBranch(config.tpe, data.fork, data.updateBranch)
+      head = config.tpe.pullRequestHeadFor(data.fork, data.updateBranch)
       pullRequests <- forgeApiAlg.listPullRequests(data.repo, head, data.baseBranch)
       result <- pullRequests.headOption match {
         case Some(pr) if pr.state.isClosed && data.update.isInstanceOf[Update.Single] =>
@@ -230,20 +230,18 @@ final class NurtureAlg[F[_]](config: ForgeCfg)(implicit
           .on(u => List(u.currentVersion.value), _.updates.map(_.currentVersion.value))
           .flatTraverse(gitAlg.findFilesContaining(data.repo, _))
           .map(_.distinct)
-      branchName = forge.createBranch(config.tpe, data.fork, data.updateBranch)
       allLabels = labelsFor(data.update, edits, filesWithOldVersion, artifactIdToVersionScheme)
       labels = filterLabels(allLabels, data.repoData.config.pullRequests.includeMatchedLabels)
-      requestData = NewPullRequestData.from(
-        data = data,
-        branchName = branchName,
-        edits = edits,
-        artifactIdToUrl = artifactIdToUrl,
-        artifactIdToUpdateInfoUrls = artifactIdToUpdateInfoUrls.toMap,
-        filesWithOldVersion = filesWithOldVersion,
-        addLabels = config.addLabels,
-        labels = data.repoData.config.pullRequests.customLabels ++ labels
-      )
-    } yield requestData
+    } yield NewPullRequestData.from(
+      data = data,
+      branchName = config.tpe.pullRequestHeadFor(data.fork, data.updateBranch),
+      edits = edits,
+      artifactIdToUrl = artifactIdToUrl,
+      artifactIdToUpdateInfoUrls = artifactIdToUpdateInfoUrls.toMap,
+      filesWithOldVersion = filesWithOldVersion,
+      addLabels = config.addLabels,
+      labels = data.repoData.config.pullRequests.customLabels ++ labels
+    )
 
   private def createPullRequest(data: UpdateData, edits: List[EditAttempt]): F[ProcessResult] =
     for {
@@ -267,7 +265,7 @@ final class NurtureAlg[F[_]](config: ForgeCfg)(implicit
       gitAlg.returnToCurrentBranch(data.repo) {
         gitAlg.checkoutBranch(data.repo, data.updateBranch) >>
           shouldBeUpdated(data).ifM(
-            ifTrue = mergeAndApplyAgain(number, data),
+            ifTrue = resetAndApplyAgain(number, data),
             ifFalse = (Ignored: ProcessResult).pure
           )
       }
@@ -293,22 +291,19 @@ final class NurtureAlg[F[_]](config: ForgeCfg)(implicit
     result.flatMap { case (update, msg) => logger.info(msg).as(update) }
   }
 
-  private def mergeAndApplyAgain(number: PullRequestNumber, data: UpdateData): F[ProcessResult] =
+  private def resetAndApplyAgain(number: PullRequestNumber, data: UpdateData): F[ProcessResult] =
     for {
       _ <- logger.info(
-        s"Merge branch ${data.baseBranch.name} into ${data.updateBranch.name} and apply again"
+        s"Reset ${data.updateBranch.name} to ${data.baseBranch.name} and apply again"
       )
-      maybeRevertCommit <- gitAlg.revertChanges(data.repo, data.baseBranch)
-      maybeMergeCommit <- gitAlg.mergeTheirs(data.repo, data.baseBranch)
+      _ <- gitAlg.resetHard(data.repo, data.baseBranch)
       edits <- data.update.on(
         update = editAlg.applyUpdate(data.repoData, _),
         grouped = _.updates.flatTraverse(editAlg.applyUpdate(data.repoData, _))
       )
       editCommits = edits.flatMap(_.commits)
-      commits = maybeRevertCommit.toList ++ maybeMergeCommit.toList ++ editCommits
-      result <- pushCommits(data, commits)
+      result <- pushCommits(data, editCommits)
       requestData <- preparePullRequest(data, edits)
       _ <- forgeApiAlg.updatePullRequest(number: PullRequestNumber, data.repo, requestData)
     } yield result
-
 }

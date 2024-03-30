@@ -5,12 +5,12 @@
 # Scala Steward
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/scala-steward-org/scala-steward/ci.yml?branch=main)](https://github.com/scala-steward-org/scala-steward/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/scala-steward-org/scala-steward/branch/main/graph/badge.svg)](https://codecov.io/gh/scala-steward-org/scala-steward)
-[![Join the chat at https://gitter.im/scala-steward-org/scala-steward](https://badges.gitter.im/scala-steward-org/scala-steward.svg)](https://gitter.im/scala-steward-org/scala-steward?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Typelevel project](https://img.shields.io/badge/typelevel-project-blue.svg)](https://typelevel.org/projects/#scala-steward)
 [![Scala Steward badge](https://img.shields.io/badge/Scala_Steward-helping-blue.svg?style=flat&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAQCAMAAAARSr4IAAAAVFBMVEUAAACHjojlOy5NWlrKzcYRKjGFjIbp293YycuLa3pYY2LSqql4f3pCUFTgSjNodYRmcXUsPD/NTTbjRS+2jomhgnzNc223cGvZS0HaSD0XLjbaSjElhIr+AAAAAXRSTlMAQObYZgAAAHlJREFUCNdNyosOwyAIhWHAQS1Vt7a77/3fcxxdmv0xwmckutAR1nkm4ggbyEcg/wWmlGLDAA3oL50xi6fk5ffZ3E2E3QfZDCcCN2YtbEWZt+Drc6u6rlqv7Uk0LdKqqr5rk2UCRXOk0vmQKGfc94nOJyQjouF9H/wCc9gECEYfONoAAAAASUVORK5CYII=)](https://scala-steward.org)
 [![Docker Pulls](https://img.shields.io/docker/pulls/fthomas/scala-steward.svg?style=flat&color=blue)](https://hub.docker.com/r/fthomas/scala-steward/)
 
-Scala Steward is a bot that helps you keep your library dependencies, sbt plugins, and Scala and sbt versions up-to-date.
+Scala Steward is a bot that helps you keep your library dependencies and build plugins up-to-date.
+It works with [Maven](https://maven.apache.org/), [Mill](https://mill-build.com/), [sbt](https://www.scala-sbt.org/), and [Scala CLI](https://scala-cli.virtuslab.org/).
 
 See also the announcement blog post:
 [*Keep your projects up-to-date with Scala Steward*](https://www.scala-lang.org/blog/2019/07/10/announcing-scala-steward.html)
@@ -94,6 +94,7 @@ Thanks goes to these wonderful people for contributing to Scala Steward:
 * [Dominic Egger](https://github.com/GrafBlutwurst)
 * [Don Smith III](https://github.com/cactauz)
 * [Doug Roper](https://github.com/htmldoug)
+* [Edward Samson](https://github.com/esamson)
 * [Eldar Yusupov](https://github.com/eyusupov)
 * [Ender Tunç](https://github.com/endertunc)
 * [Erik Erlandson](https://github.com/erikerlandson)
@@ -111,8 +112,10 @@ Thanks goes to these wonderful people for contributing to Scala Steward:
 * [Ikenna Darlington Ogbajie](https://github.com/idarlington)
 * [Ingar Abrahamsen](https://github.com/ingarabr)
 * [Jakub Kozłowski](https://github.com/kubukoz)
+* [Jamie Thompson](https://github.com/bishabosha)
 * [Javier Arrieta](https://github.com/javierarrieta)
 * [JCollier](https://github.com/Slakah)
+* [jduval87](https://github.com/jduval87)
 * [Jeff Martin](https://github.com/custommonkey)
 * [Jichao Ouyang](https://github.com/jcouyang)
 * [Joan Goyeau](https://github.com/joan38)
@@ -125,7 +128,7 @@ Thanks goes to these wonderful people for contributing to Scala Steward:
 * [Leonhard Riedißer](https://github.com/L7R7)
 * [Maksym Ochenashko](https://github.com/iRevive)
 * [Manuel Cueto](https://github.com/manuelcueto)
-* [Marco Zühlke](https://github.com/mzuehlke) 
+* [Marco Zühlke](https://github.com/mzuehlke)
 * [Mark Canlas](https://github.com/mcanlas)
 * [Mark van der Tol](https://github.com/markvandertol)
 * [MaT1g3R](https://github.com/MaT1g3R)
@@ -192,6 +195,7 @@ Consider creating PR to add your company to the list and join the community.
 * [HolidayCheck](https://github.com/holidaycheck)
 * [iAdvize](https://www.iadvize.com/en/)
 * [LeadIQ](https://leadiq.com/)
+* [Lichess](https://lichess.org)
 * [Lightbend](https://www.lightbend.com/)
 * [Mobimeo](https://www.mobimeo.com/)
 * [Ocado Technology](https://ocadotechnology.com/)
@@ -206,7 +210,7 @@ Consider creating PR to add your company to the list and join the community.
 * [Spotify](https://www.spotify.com)
 * [SpringerNature](https://www.springernature.com)
 * [Teads](https://medium.com/teads-engineering)
-* [Tegonal GmbH](https://tegonal.com)
+* [Tegonal Genossenschaft](https://tegonal.com)
 * [Tupl](https://www.tupl.com)
 * [VirtusLab](https://virtuslab.com/)
 * [wehkamp](https://www.wehkamp.nl/)
@@ -216,8 +220,7 @@ Consider creating PR to add your company to the list and join the community.
 ## Participation
 
 The Scala Steward project supports the [Scala Code of Conduct][CoC]
-and wants all of its channels (GitHub, Gitter, etc.) to be welcoming
-environments for everyone.
+and wants all of its channels to be welcoming environments for everyone.
 
 ## Credit
 

@@ -10,18 +10,38 @@ import org.scalasteward.core.mock.MockState
 import org.scalasteward.core.mock.MockState.TraceEntry.{Cmd, Log}
 import org.scalasteward.core.util.Nel
 
+import cats.syntax.parallel._
+
 class ScalaCliAlgTest extends CatsEffectSuite {
   test("containsBuild: directive in non-source file") {
     val repo = Repo("user", "repo")
     val buildRoot = BuildRoot(repo, ".")
     val repoDir = workspaceAlg.repoDir(repo).unsafeRunSync()
     val fileWithUsingLib = "test.md" // this test fails if the extension is .scala or .sc
-    val grepCmd =
-      Cmd.git(repoDir, "grep", "-I", "--fixed-strings", "--files-with-matches", "//> using lib ")
+    val grepCmd = Cmd.gitGrep(repoDir, "//> using lib ")
     val initial =
       MockState.empty.copy(commandOutputs = Map(grepCmd -> Right(List(fileWithUsingLib))))
     val obtained = scalaCliAlg.containsBuild(buildRoot).runA(initial)
     assertIO(obtained, false)
+  }
+
+  test("containsBuild: directive with test.dep, dep, and lib") {
+    val repo = Repo("user", "repo")
+    val buildRoot = BuildRoot(repo, ".")
+    val repoDir = workspaceAlg.repoDir(repo).unsafeRunSync()
+    val fileWithUsingDirective = "project.scala"
+
+    ScalaCliAlg.directives
+      .map { search =>
+        val grepCmd =
+          Cmd.git(repoDir, "grep", "-I", "--fixed-strings", "--files-with-matches", search)
+        val initial =
+          MockState.empty.copy(commandOutputs = Map(grepCmd -> Right(List(fileWithUsingDirective))))
+        val obtained = scalaCliAlg.containsBuild(buildRoot).runA(initial)
+        assertIO(obtained, true)
+      }
+      .parSequence
+      .void
   }
 
   test("getDependencies") {

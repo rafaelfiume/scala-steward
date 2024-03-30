@@ -21,7 +21,7 @@ val moduleCrossPlatformMatrix: Map[String, List[Platform]] = Map(
   "dummy" -> List(JVMPlatform)
 )
 
-val Scala213 = "2.13.12"
+val Scala213 = "2.13.13"
 
 /// sbt-typelevel configuration
 
@@ -53,6 +53,8 @@ ThisBuild / githubWorkflowPublish := Seq(
 ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec(Temurin, "17"), JavaSpec(Temurin, "11"))
 ThisBuild / githubWorkflowBuild :=
   Seq(
+    WorkflowStep
+      .Use(UseRef.Public("coursier", "setup-action", "v1"), params = Map("apps" -> "scalafmt")),
     WorkflowStep.Sbt(List("validate"), name = Some("Build project")),
     WorkflowStep.Use(
       UseRef.Public("codecov", "codecov-action", "v3"),
@@ -61,7 +63,12 @@ ThisBuild / githubWorkflowBuild :=
   )
 
 ThisBuild / mergifyPrRules := {
-  val authorCondition = MergifyCondition.Custom("author=scala-steward")
+  val authorCondition = MergifyCondition.Or(
+    List(
+      MergifyCondition.Custom("author=scala-steward"),
+      MergifyCondition.Custom("author=scala-steward-dev")
+    )
+  )
   Seq(
     MergifyPrRule(
       "label scala-steward's PRs",
@@ -71,7 +78,7 @@ ThisBuild / mergifyPrRules := {
     MergifyPrRule(
       "merge scala-steward's PRs",
       List(authorCondition) ++ mergifySuccessConditions.value,
-      List(MergifyAction.Merge(Some("squash")))
+      List(MergifyAction.Merge(Some("merge")))
     )
   )
 }
@@ -81,6 +88,10 @@ ThisBuild / mergifyPrRules := {
 ThisBuild / dynverSeparator := "-"
 
 ThisBuild / evictionErrorLevel := Level.Info
+
+ThisBuild / tpolecatDefaultOptionsMode := {
+  if (insideCI.value) org.typelevel.sbt.tpolecat.CiMode else org.typelevel.sbt.tpolecat.DevMode
+}
 
 /// projects
 
@@ -122,7 +133,6 @@ lazy val core = myCrossProject("core")
       Dependencies.decline,
       Dependencies.fs2Core,
       Dependencies.fs2Io,
-      Dependencies.gitignore,
       Dependencies.http4sCirce,
       Dependencies.http4sClient,
       Dependencies.http4sCore,
@@ -292,8 +302,6 @@ lazy val commonSettings = Def.settings(
 
 lazy val compileSettings = Def.settings(
   scalaVersion := Scala213,
-  // Uncomment for local development:
-  // scalacOptions -= "-Xfatal-warnings",
   doctestTestFramework := DoctestTestFramework.Munit
 )
 
@@ -370,7 +378,10 @@ lazy val dockerSettings = Def.settings(
     ).mkString(" && ")
     Seq(
       Cmd("USER", "root"),
-      Cmd("RUN", "apk --no-cache add bash git ca-certificates curl maven openssh nodejs npm"),
+      Cmd(
+        "RUN",
+        "apk --no-cache add bash git gpg ca-certificates curl maven openssh nodejs npm ncurses"
+      ),
       Cmd("RUN", installSbt),
       Cmd("RUN", installMill),
       Cmd("RUN", installCoursier),
@@ -418,17 +429,22 @@ lazy val moduleRootPkg = settingKey[String]("").withRank(KeyRanks.Invisible)
 moduleRootPkg := rootPkg
 
 // Run Scala Steward from sbt for development and testing.
-// Do not do this in production.
+// Members of the @scala-steward-org/core team can request an access token
+// of @scala-steward-dev for local development from @fthomas.
 lazy val runSteward = taskKey[Unit]("")
 runSteward := Def.taskDyn {
   val home = System.getenv("HOME")
   val projectDir = (LocalRootProject / baseDirectory).value
+  val gitHubLogin = projectName + "-dev"
+  // val gitHubAppDir = projectDir.getParentFile / "gh-app"
   val args = Seq(
     Seq("--workspace", s"$projectDir/workspace"),
     Seq("--repos-file", s"$projectDir/repos.md"),
-    Seq("--git-author-email", s"me@$projectName.org"),
-    Seq("--forge-login", projectName),
-    Seq("--git-ask-pass", s"$home/.github/askpass/$projectName.sh"),
+    Seq("--git-author-email", s"dev@$projectName.org"),
+    Seq("--forge-login", gitHubLogin),
+    Seq("--git-ask-pass", s"$home/.github/askpass/$gitHubLogin.sh"),
+    // Seq("--github-app-id", IO.read(gitHubAppDir / "scala-steward.app-id.txt").trim),
+    // Seq("--github-app-key-file", s"$gitHubAppDir/scala-steward.private-key.pem"),
     Seq("--whitelist", s"$home/.cache/coursier"),
     Seq("--whitelist", s"$home/.cache/JNA"),
     Seq("--whitelist", s"$home/.cache/mill"),
@@ -436,6 +452,15 @@ runSteward := Def.taskDyn {
     Seq("--whitelist", s"$home/.m2"),
     Seq("--whitelist", s"$home/.mill"),
     Seq("--whitelist", s"$home/.sbt")
+  ).flatten.mkString(" ", " ", "")
+  (core.jvm / Compile / run).toTask(args)
+}.value
+
+lazy val runValidateRepoConfig = taskKey[Unit]("")
+runValidateRepoConfig := Def.taskDyn {
+  val projectDir = (LocalRootProject / baseDirectory).value
+  val args = Seq(
+    Seq("validate-repo-config", s"$projectDir/.scala-steward.conf")
   ).flatten.mkString(" ", " ", "")
   (core.jvm / Compile / run).toTask(args)
 }.value
