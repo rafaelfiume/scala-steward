@@ -11,7 +11,7 @@ sbt stage
   --repos-file "$STEWARD_DIR/repos.md" \
   --repo-config "$STEWARD_DIR/.scala-steward.conf" \
   --git-author-email ${EMAIL} \
-  --vcs-api-host "https://api.github.com" \
-  --vcs-login ${LOGIN} \
+  --forge-api-host "https://api.github.com" \
+  --forge-login ${LOGIN} \
   --git-ask-pass "$HOME/.github/tokens/rafaelfiume.sh" \
   --do-not-fork
