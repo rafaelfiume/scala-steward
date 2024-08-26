@@ -14,22 +14,19 @@
  * limitations under the License.
  */
 
-package org.scalasteward.core.persistence
+package org.scalasteward.core.application
 
-import cats.syntax.all._
-import cats.{FlatMap, Functor}
+import cats.effect.ExitCode
 
-trait KeyValueStore[F[_], K, V] {
-  def get(key: K): F[Option[V]]
+trait ExitCodePolicy {
+  def exitCodeFor(runResults: RunResults): ExitCode
+}
 
-  def set(key: K, value: Option[V]): F[Unit]
+object ExitCodePolicy {
+  def successIf(isSuccess: RunResults => Boolean): ExitCodePolicy =
+    (runResults: RunResults) => if (isSuccess(runResults)) ExitCode.Success else ExitCode.Error
 
-  final def getOrElse(key: K, default: => V)(implicit F: Functor[F]): F[V] =
-    get(key).map(_.getOrElse(default))
+  val SuccessIfAnyRepoSucceeds: ExitCodePolicy = successIf(_.successRepos.nonEmpty)
 
-  final def modifyF(key: K)(f: Option[V] => F[Option[V]])(implicit F: FlatMap[F]): F[Option[V]] =
-    get(key).flatMap(f).flatTap(set(key, _))
-
-  final def put(key: K, value: V): F[Unit] =
-    set(key, Some(value))
+  val SuccessOnlyIfAllReposSucceed: ExitCodePolicy = successIf(_.reposWithFailures.isEmpty)
 }
