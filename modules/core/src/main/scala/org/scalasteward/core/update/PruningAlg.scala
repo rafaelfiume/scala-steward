@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,18 +17,18 @@
 package org.scalasteward.core.update
 
 import cats.Monad
-import cats.implicits._
-import org.scalasteward.core.data._
+import cats.implicits.*
+import org.scalasteward.core.data.*
 import org.scalasteward.core.nurture.PullRequestRepository
 import org.scalasteward.core.repocache.RepoCache
 import org.scalasteward.core.repoconfig.{PullRequestFrequency, RepoConfig, UpdatePattern}
-import org.scalasteward.core.update.PruningAlg._
+import org.scalasteward.core.update.PruningAlg.*
 import org.scalasteward.core.update.data.UpdateState
-import org.scalasteward.core.update.data.UpdateState._
+import org.scalasteward.core.update.data.UpdateState.*
 import org.scalasteward.core.util
 import org.scalasteward.core.util.{dateTime, DateTimeAlg, Nel, Timestamp}
 import org.typelevel.log4cats.Logger
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 final class PruningAlg[F[_]](implicit
     dateTimeAlg: DateTimeAlg[F],
@@ -112,7 +112,7 @@ final class PruningAlg[F[_]](implicit
       crossDependency: CrossDependency
   ): F[UpdateState] =
     updates.find(UpdateAlg.isUpdateFor(_, crossDependency)) match {
-      case None => F.pure(DependencyUpToDate(crossDependency))
+      case None         => F.pure(DependencyUpToDate(crossDependency))
       case Some(update) =>
         pullRequestRepository.findLatestPullRequest(repo, crossDependency, update.nextVersion).map {
           case None =>
@@ -166,7 +166,7 @@ final class PruningAlg[F[_]](implicit
       repoConfig: RepoConfig
   ): F[Boolean] = {
     val (frequencyz: Option[PullRequestFrequency], lastPrCreatedAt: Option[Timestamp]) =
-      repoConfig.dependencyOverrides
+      repoConfig.dependencyOverridesOrDefault
         .collectFirstSome { groupRepoConfig =>
           val matchResult = UpdatePattern
             .findMatch(List(groupRepoConfig.dependency), dependencyOutdated.update, include = true)
@@ -174,7 +174,7 @@ final class PruningAlg[F[_]](implicit
             (groupRepoConfig.pullRequests.frequency, artifactLastPrCreatedAt)
           )
         }
-        .getOrElse((repoConfig.pullRequests.frequency, repoLastPrCreatedAt))
+        .getOrElse((repoConfig.pullRequestsOrDefault.frequency, repoLastPrCreatedAt))
     val frequency = frequencyz.getOrElse(PullRequestFrequency.Asap)
 
     val dep = dependencyOutdated.crossDependency.head
@@ -183,7 +183,7 @@ final class PruningAlg[F[_]](implicit
       logger.info(s"$ignoring according to $frequency").as(false)
     else {
       lastPrCreatedAt.flatMap(frequency.waitingTime(_, now)) match {
-        case None => true.pure[F]
+        case None              => true.pure[F]
         case Some(waitingTime) =>
           val message = s"$ignoring for ${dateTime.showDuration(waitingTime)}"
           logger.info(message).as(false)

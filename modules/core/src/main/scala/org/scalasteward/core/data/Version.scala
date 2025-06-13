@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,9 @@
 package org.scalasteward.core.data
 
 import cats.Order
-import cats.implicits._
+import cats.implicits.*
 import cats.parse.{Numbers, Parser, Rfc5234}
-import io.circe.Codec
-import io.circe.generic.extras.semiauto.deriveUnwrappedCodec
+import io.circe.{Decoder, Encoder}
 import org.scalasteward.core.data.Version.startsWithDate
 
 final case class Version(value: String) {
@@ -113,7 +112,7 @@ final case class Version(value: String) {
       case _                         => false
     } || Rfc5234.hexdig.rep(8).string.filterNot(startsWithDate).parse(value).isRight
 
-  private[this] def alnumComponentsWithoutPreRelease: List[Version.Component] =
+  private def alnumComponentsWithoutPreRelease: List[Version.Component] =
     alnumComponents.takeWhile {
       case a: Version.Component.Alpha => !a.isPreReleaseIdent
       case _                          => true
@@ -128,8 +127,11 @@ object Version {
 
   val tagNames: List[Version => String] = List("v" + _, _.value, "release-" + _)
 
-  implicit val versionCodec: Codec[Version] =
-    deriveUnwrappedCodec
+  implicit val versionDecoder: Decoder[Version] =
+    Decoder[String].map(Version.apply)
+
+  implicit val versionEncoder: Encoder[Version] =
+    Encoder[String].contramap(_.value)
 
   implicit val versionOrder: Order[Version] =
     Order.from[Version] { (v1, v2) =>

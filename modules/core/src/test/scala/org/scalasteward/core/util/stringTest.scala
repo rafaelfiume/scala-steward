@@ -2,7 +2,7 @@ package org.scalasteward.core.util
 
 import munit.ScalaCheckSuite
 import org.scalacheck.Gen
-import org.scalacheck.Prop._
+import org.scalacheck.Prop.*
 
 class stringTest extends ScalaCheckSuite {
   test("extractWords") {
@@ -30,10 +30,10 @@ class stringTest extends ScalaCheckSuite {
     assertEquals(string.longestCommonPrefix("abc", "def"), "")
   }
 
-  test("longestCommonPrefixGreater") {
-    assertEquals(string.longestCommonPrefixGreater[1](Nel.of("abcde", "abchk")).get.value, "abc")
-    assertEquals(string.longestCommonPrefixGreater[3](Nel.of("abcde", "abchk")).get.value, "abc")
-    assertEquals(string.longestCommonPrefixGreater[3](Nel.of("abcde", "abhk")), None)
+  test("longestCommonPrefixGteq") {
+    assertEquals(string.longestCommonPrefixGteq(Nel.of("abcde", "abchk"), 1), Some("abc"))
+    assertEquals(string.longestCommonPrefixGteq(Nel.of("abcde", "abchk"), 3), Some("abc"))
+    assertEquals(string.longestCommonPrefixGteq(Nel.of("abcde", "abhk"), 3), None)
   }
 
   test("rightmostLabel") {
@@ -48,7 +48,7 @@ class stringTest extends ScalaCheckSuite {
   }
 
   property("splitBetweenLowerAndUpperChars(s).mkString == s") {
-    forAll(Gen.asciiStr) { s: String =>
+    forAll(Gen.asciiStr) { (s: String) =>
       assertEquals(string.splitBetweenLowerAndUpperChars(s).mkString, s)
     }
   }

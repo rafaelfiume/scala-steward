@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 
 package org.scalasteward.core.util
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import java.util.concurrent.TimeUnit
 import scala.annotation.tailrec
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object dateTime {
   def parseFiniteDuration(s: String): Either[Throwable, FiniteDuration] =

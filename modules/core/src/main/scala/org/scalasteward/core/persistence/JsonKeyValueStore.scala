@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@ package org.scalasteward.core.persistence
 
 import better.files.File
 import cats.Monad
-import cats.syntax.all._
+import cats.syntax.all.*
 import io.circe.parser.decode
-import io.circe.syntax._
+import io.circe.syntax.*
 import io.circe.{Decoder, Encoder, KeyEncoder}
 import org.scalasteward.core.io.{FileAlg, WorkspaceAlg}
 import org.typelevel.log4cats.Logger
@@ -36,11 +36,11 @@ final class JsonKeyValueStore[F[_], K, V](storeRoot: File, name: String)(implici
   override def get(key: K): F[Option[V]] = {
     val file = jsonFile(key)
     fileAlg.readFile(file).flatMap {
-      case None => F.pure(Option.empty[V])
+      case None          => F.pure(Option.empty[V])
       case Some(content) =>
         decode[Option[V]](content) match {
           case Right(maybeValue) => F.pure(maybeValue)
-          case Left(error) =>
+          case Left(error)       =>
             logger.error(error)(s"Failed to parse or decode JSON from $file").as(Option.empty[V])
         }
     }

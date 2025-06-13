@@ -1,9 +1,9 @@
 package org.scalasteward.core.coursier
 
 import cats.Id
-import cats.syntax.all._
+import cats.syntax.all.*
 import munit.FunSuite
-import org.http4s.implicits.http4sLiteralsSyntax
+import org.http4s.syntax.literals.*
 
 class DependencyMetadataTest extends FunSuite {
   test("filterUrls") {

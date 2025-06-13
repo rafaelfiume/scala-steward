@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 
 package org.scalasteward.core.forge.github
 
-import io.circe.Decoder
-import io.circe.generic.semiauto.deriveDecoder
+import io.circe.Codec
+import io.circe.generic.semiauto.deriveCodec
 
 case class TokenOut(token: String)
 object TokenOut {
-  implicit val tokenDecoder: Decoder[TokenOut] = deriveDecoder
+  implicit val tokenCodec: Codec[TokenOut] = deriveCodec
 }

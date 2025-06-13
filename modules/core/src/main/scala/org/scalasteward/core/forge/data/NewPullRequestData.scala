@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,18 @@
 
 package org.scalasteward.core.forge.data
 
-import cats.syntax.all._
+import cats.syntax.all.*
+import io.circe.Json
+import io.circe.syntax.*
 import org.http4s.Uri
-import org.scalasteward.core.data._
+import org.scalasteward.core.data.*
 import org.scalasteward.core.edit.EditAttempt
 import org.scalasteward.core.edit.EditAttempt.ScalafixEdit
 import org.scalasteward.core.git.{Branch, CommitMsg}
 import org.scalasteward.core.nurture.UpdateInfoUrl
-import org.scalasteward.core.nurture.UpdateInfoUrl._
+import org.scalasteward.core.nurture.UpdateInfoUrl.*
 import org.scalasteward.core.repoconfig.{GroupRepoConfig, RepoConfigAlg}
 import org.scalasteward.core.util.{Details, Nel}
-
 import scala.util.matching.Regex
 
 final case class NewPullRequestData(
@@ -48,19 +49,21 @@ object NewPullRequestData {
       artifactIdToUpdateInfoUrls: Map[String, List[UpdateInfoUrl]],
       filesWithOldVersion: List[String],
       configParsingError: Option[String],
-      labels: List[String]
+      labels: List[String],
+      maximumPullRequestLength: Int
   ): String = {
     val migrations = edits.collect { case scalafixEdit: ScalafixEdit => scalafixEdit }
     val appliedMigrations = migrationNote(migrations)
-    val oldVersionDetails = oldVersionNote(filesWithOldVersion, update)
+    val updateWithEdits = filterUpdateWithEditAttempts(update, edits)
+    val oldVersionDetails = oldVersionNote(filesWithOldVersion, updateWithEdits)
     val details = List(
       appliedMigrations,
       oldVersionDetails,
-      adjustFutureUpdates(update).some,
+      adjustFutureUpdates(updateWithEdits).some,
       configParsingError.map(configParsingErrorDetails)
     ).flatten
 
-    val updatesText = update.on(
+    val updatesText = updateWithEdits.on(
       update = u => {
         val artifacts = artifactsWithOptionalUrl(u, artifactIdToUrl)
 
@@ -89,31 +92,64 @@ object NewPullRequestData {
       }
     )
 
-    val skipVersionMessage = update.on(
+    val skipVersionMessage = updateWithEdits.on(
       _ => "If you'd like to skip this version, you can just close this PR. ",
       _ => ""
     )
 
-    s"""|$updatesText
-        |
-        |## Usage
-        |✅ **Please merge!**
-        |
-        |I'll automatically update this PR to resolve conflicts as long as you don't change it yourself.
-        |
-        |${skipVersionMessage}If you have any feedback, just mention me in the comments below.
-        |
-        |Configure Scala Steward for your repository with a [`${RepoConfigAlg.repoConfigBasename}`](${org.scalasteward.core.BuildInfo.gitHubUrl}/blob/${org.scalasteward.core.BuildInfo.gitHeadCommit}/docs/repo-specific-configuration.md) file.
-        |
-        |_Have a fantastic day writing Scala!_
-        |
-        |${details.map(_.toHtml).mkString("\n")}
-        |
-        |<sup>
-        |${labels.mkString("labels: ", ", ", "")}
-        |</sup>
-        |""".stripMargin.trim
+    val plainBody =
+      s"""|$updatesText
+          |
+          |## Usage
+          |✅ **Please merge!**
+          |
+          |I'll automatically update this PR to resolve conflicts as long as you don't change it yourself.
+          |
+          |${skipVersionMessage}If you have any feedback, just mention me in the comments below.
+          |
+          |Configure Scala Steward for your repository with a [`${RepoConfigAlg.repoConfigBasename}`](${org.scalasteward.core.BuildInfo.gitHubUrl}/blob/${org.scalasteward.core.BuildInfo.gitHeadCommit}/docs/repo-specific-configuration.md) file.
+          |
+          |_Have a fantastic day writing Scala!_
+          |
+          |${details.map(_.toHtml).mkString("\n")}
+          |
+          |<sup>
+          |${labels.mkString("labels: ", ", ", "")}
+          |</sup>
+          |""".stripMargin.trim
+
+    val metadataJson =
+      Json
+        .obj(
+          "Update" -> updateWithEdits.asJson,
+          "Labels" -> Json.fromValues(labels.map(_.asJson))
+        )
+        .toString
+
+    val bodyWithMetadata =
+      s"""$plainBody
+         |
+         |<!-- scala-steward = $metadataJson -->""".stripMargin
+
+    if (bodyWithMetadata.length < maximumPullRequestLength)
+      bodyWithMetadata
+    else plainBody
   }
+
+  private def filterUpdateWithEditAttempts(update: Update, edits: List[EditAttempt]): Update =
+    update match {
+      case single: Update.Single   => single
+      case grouped: Update.Grouped =>
+        grouped.copy(updates = grouped.updates.filter { update =>
+          edits
+            .collect { case EditAttempt.UpdateEdit(update, _) =>
+              update.groupAndMainArtifactId
+            }
+            .exists { case (groupId, artifactId) =>
+              update.groupId == groupId && update.mainArtifactId == artifactId
+            }
+        })
+    }
 
   def renderUpdateInfoUrls(updateInfoUrls: List[UpdateInfoUrl]): Option[String] =
     Option.when(updateInfoUrls.nonEmpty) {
@@ -222,9 +258,8 @@ object NewPullRequestData {
         .map { scalafixEdit =>
           val migration = scalafixEdit.migration
           val listElements =
-            (migration.rewriteRules.map(rule => s"  * $rule").toList ++ migration.doc.map(uri =>
-              s"  * Documentation: $uri"
-            )).mkString("\n")
+            (migration.rewriteRules.map(rule => s"  * $rule").toList ++ migration.doc
+              .map(uri => s"  * Documentation: $uri")).mkString("\n")
           val artifactName = migration.artifactIds match {
             case Nel(one, Nil) => one
             case multiple      => multiple.toList.mkString("{", ",", "}")
@@ -245,11 +280,13 @@ object NewPullRequestData {
       artifactIdToUpdateInfoUrls: Map[String, List[UpdateInfoUrl]] = Map.empty,
       filesWithOldVersion: List[String] = List.empty,
       addLabels: Boolean = false,
-      labels: List[String] = List.empty
+      draft: Boolean = false,
+      labels: List[String] = List.empty,
+      maximumPullRequestLength: Int = 65536
   ): NewPullRequestData =
     NewPullRequestData(
       title = CommitMsg
-        .replaceVariables(data.repoConfig.commits.messageOrDefault)(
+        .replaceVariables(data.repoConfig.commitsOrDefault.messageOrDefault)(
           data.update,
           data.repoData.repo.branch
         )
@@ -261,13 +298,15 @@ object NewPullRequestData {
         artifactIdToUpdateInfoUrls,
         filesWithOldVersion,
         data.repoData.cache.maybeRepoConfigParsingError,
-        labels
+        labels,
+        maximumPullRequestLength
       ),
       head = branchName,
       base = data.baseBranch,
       labels = if (addLabels) labels else List.empty,
-      assignees = data.repoConfig.assignees,
-      reviewers = data.repoConfig.reviewers
+      assignees = data.repoConfig.assigneesOrDefault,
+      reviewers = data.repoConfig.reviewersOrDefault,
+      draft = draft
     )
 
   def updateTypeLabels(anUpdate: Update): List[String] = {

@@ -1,8 +1,8 @@
 package org.scalasteward.core.io
 
-import cats.syntax.all._
 import cats.data.Kleisli
 import cats.effect.IO
+import cats.syntax.all.*
 import org.scalasteward.core.application.Config.ProcessCfg
 import org.scalasteward.core.mock.MockEff
 import org.scalasteward.core.mock.MockState.TraceEntry.Cmd
@@ -21,7 +21,7 @@ object MockProcessAlg {
           state1 = state0.appendTraceEntry(cmd)
           _ <- ctx.set(state1)
           res <- state1.commandOutputs.get(cmd) match {
-            case Some(output) => IO.fromEither(output).tupleRight(state1.files)
+            case Some(output)                => IO.fromEither(output).tupleRight(state1.files)
             case None if state1.execCommands =>
               for {
                 output <- ProcessAlgTest.ioProcessAlg.execImpl(args)

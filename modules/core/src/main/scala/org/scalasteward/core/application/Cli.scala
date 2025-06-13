@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,12 @@ package org.scalasteward.core.application
 import better.files.File
 import cats.data.Validated
 import cats.effect.ExitCode
-import cats.syntax.all._
+import cats.syntax.all.*
+import com.monovore.decline.*
 import com.monovore.decline.Opts.{flag, option, options}
-import com.monovore.decline._
 import org.http4s.Uri
-import org.http4s.syntax.literals._
-import org.scalasteward.core.application.Config._
+import org.http4s.syntax.literals.*
+import org.scalasteward.core.application.Config.*
 import org.scalasteward.core.application.ExitCodePolicy.{
   SuccessIfAnyRepoSucceeds,
   SuccessOnlyIfAllReposSucceed
@@ -36,8 +36,7 @@ import org.scalasteward.core.forge.github.GitHubApp
 import org.scalasteward.core.git.Author
 import org.scalasteward.core.util.Nel
 import org.scalasteward.core.util.dateTime.renderFiniteDuration
-
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object Cli {
   final case class EnvVar(name: String, value: String)
@@ -105,43 +104,24 @@ object Cli {
   private val signCommits: Opts[Boolean] =
     flag("sign-commits", "Whether to sign commits; default: false").orFalse
 
-  private val gitCfg: Opts[GitCfg] =
-    (gitAuthor, gitAskPass, signCommits).mapN(GitCfg.apply)
+  private val signoff: Opts[Boolean] =
+    flag("signoff", "Whether to signoff commits; default: false").orFalse
 
-  private val vcsType =
-    option[ForgeType](
-      "vcs-type",
-      s"deprecated in favor of --${name.forgeType}",
-      visibility = Visibility.Partial
-    ).validate(s"--vcs-type is deprecated; use --${name.forgeType} instead")(_ => false)
+  private val gitCfg: Opts[GitCfg] =
+    (gitAuthor, gitAskPass, signCommits, signoff).mapN(GitCfg.apply)
 
   private val forgeType = {
     val help = ForgeType.all.map(_.asString).mkString("One of ", ", ", "") +
       s"; default: ${GitHub.asString}"
-    option[ForgeType](name.forgeType, help).orElse(vcsType).withDefault(GitHub)
+    option[ForgeType](name.forgeType, help).withDefault(GitHub)
   }
-
-  private val vcsApiHost =
-    option[Uri](
-      "vcs-api-host",
-      s"deprecated in favor of --${name.forgeApiHost}",
-      visibility = Visibility.Partial
-    ).validate(s"--vcs-api-host is deprecated; use --${name.forgeApiHost} instead")(_ => false)
 
   private val forgeApiHost: Opts[Uri] =
     option[Uri](name.forgeApiHost, s"API URL of the forge; default: ${GitHub.publicApiBaseUrl}")
-      .orElse(vcsApiHost)
       .withDefault(GitHub.publicApiBaseUrl)
 
-  private val vcsLogin =
-    option[String](
-      "vcs-login",
-      s"deprecated in favor of --${name.forgeLogin}",
-      visibility = Visibility.Partial
-    ).validate(s"--vcs-login is deprecated; use --${name.forgeLogin} instead")(_ => false)
-
   private val forgeLogin: Opts[String] =
-    option[String](name.forgeLogin, "The user name for the forge").orElse(vcsLogin)
+    option[String](name.forgeLogin, "The user name for the forge")
 
   private val doNotFork: Opts[Boolean] =
     flag("do-not-fork", "Whether to not push the update branches to a fork; default: false").orFalse
@@ -336,11 +316,13 @@ object Cli {
     ).withDefault(Nel.one(default))
   }
 
-  private val defaultMavenRepo: Opts[Resolver] = {
+  private val defaultMavenRepos: Opts[List[Resolver]] = {
     val default = Resolver.mavenCentral
-    option[String]("default-maven-repo", s"default: ${default.location}")
-      .map(location => Resolver.MavenRepository("default", location, None, Nil))
-      .withDefault(default)
+    options[String]("default-maven-repo", s"$multiple; default: ${default.location}")
+      .map(_.toList.zipWithIndex.map { case (location, i) =>
+        Resolver.MavenRepository(s"default-$i", location, None, None)
+      })
+      .withDefault(List(default))
   }
 
   private val exitCodePolicy: Opts[ExitCodePolicy] = flag(
@@ -367,7 +349,7 @@ object Cli {
     azureReposCfg,
     gitHubApp,
     urlCheckerTestUrls,
-    defaultMavenRepo,
+    defaultMavenRepos,
     refreshBackoffPeriod,
     exitCodePolicy
   ).mapN(Config.apply).map(Usage.Regular.apply)

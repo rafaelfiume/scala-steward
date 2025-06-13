@@ -1,7 +1,7 @@
 package org.scalasteward.core.edit.update
 
 import munit.FunSuite
-import org.scalasteward.core.TestSyntax._
+import org.scalasteward.core.TestSyntax.*
 import org.scalasteward.core.edit.update.data.{ModulePosition, Substring}
 import org.scalasteward.core.io.FileData
 
@@ -23,6 +23,54 @@ class ModulePositionScannerTest extends FunSuite {
   test("sbt module with version val") {
     val d = "org.typelevel".g % "cats-core".a % "2.9.0"
     val fd = FileData("build.sbt", s""""${d.groupId}" %% "${d.artifactId.name}" % catsVersion""")
+    val obtained = ModulePositionScanner.findPositions(d, fd)
+    val expected = List(
+      ModulePosition(
+        Substring.Position(fd.path, 1, d.groupId.value),
+        Substring.Position(fd.path, 20, d.artifactId.name),
+        Substring.Position(fd.path, 33, "catsVersion")
+      )
+    )
+    assertEquals(obtained, expected)
+  }
+
+  test("sbt module with version val and comment") {
+    val d = "org.typelevel".g % "cats-core".a % "2.9.0"
+    val fd = FileData(
+      "build.sbt",
+      s""""${d.groupId}" %% "${d.artifactId.name}" % catsVersion // this is a comment"""
+    )
+    val obtained = ModulePositionScanner.findPositions(d, fd)
+    val expected = List(
+      ModulePosition(
+        Substring.Position(fd.path, 1, d.groupId.value),
+        Substring.Position(fd.path, 20, d.artifactId.name),
+        Substring.Position(fd.path, 33, "catsVersion")
+      )
+    )
+    assertEquals(obtained, expected)
+  }
+
+  test("sbt module with version val and comment with /* */") {
+    val d = "org.typelevel".g % "cats-core".a % "2.9.0"
+    val fd = FileData(
+      "build.sbt",
+      s""""${d.groupId}" %% "${d.artifactId.name}" % catsVersion /* this is a comment */"""
+    )
+    val obtained = ModulePositionScanner.findPositions(d, fd)
+    val expected = List(
+      ModulePosition(
+        Substring.Position(fd.path, 1, d.groupId.value),
+        Substring.Position(fd.path, 20, d.artifactId.name),
+        Substring.Position(fd.path, 33, "catsVersion")
+      )
+    )
+    assertEquals(obtained, expected)
+  }
+
+  test("sbt module with version val and end space") {
+    val d = "org.typelevel".g % "cats-core".a % "2.9.0"
+    val fd = FileData("build.sbt", s""""${d.groupId}" %% "${d.artifactId.name}" % catsVersion """)
     val obtained = ModulePositionScanner.findPositions(d, fd)
     val expected = List(
       ModulePosition(

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@
 package org.scalasteward.core.io
 
 import better.files.File
-import cats.effect._
-import cats.syntax.all._
+import cats.effect.*
+import cats.syntax.all.*
 import fs2.Stream
 import java.io.{IOException, InputStream}
 import org.scalasteward.core.application.Cli
-import org.scalasteward.core.util._
+import org.scalasteward.core.util.*
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.TimeoutException
 import scala.concurrent.duration.FiniteDuration
@@ -61,7 +61,7 @@ object process {
   )(implicit F: Async[F]): F[List[String]] =
     createProcess(args).flatMap { process =>
       F.delay(new ListBuffer[String]).flatMap { buffer =>
-        val raiseError = F.raiseError[List[String]] _
+        val raiseError = F.raiseError[List[String]]
 
         val result =
           readLinesIntoBuffer(process.getInputStream, buffer, maxBufferSize, log)
@@ -91,7 +91,7 @@ object process {
 
   private def createProcessBuilder[F[_]](args: Args)(implicit F: Sync[F]): F[ProcessBuilder] =
     F.blocking {
-      val pb = new ProcessBuilder(args.command.toList: _*)
+      val pb = new ProcessBuilder(args.command.toList*)
       args.workingDirectory.foreach(file => pb.directory(file.toJava))
       val env = pb.environment()
       if (args.slurpOptions(SlurpOption.ClearEnvironment)) env.clear()

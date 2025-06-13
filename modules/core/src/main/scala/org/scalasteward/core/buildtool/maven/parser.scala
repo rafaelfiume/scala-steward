@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,8 @@ package org.scalasteward.core.buildtool.maven
 
 import cats.parse.Rfc5234.wsp
 import cats.parse.{Parser, Parser0}
-import cats.syntax.all._
-import org.scalasteward.core.data._
+import cats.syntax.all.*
+import org.scalasteward.core.data.*
 
 object parser {
   private val colon: Parser[Char] =
@@ -72,7 +72,7 @@ object parser {
       id <- stringNoSpace
       _ <- wsp.rep0 ~ Parser.string("url:") ~ wsp
       url <- stringNoSpace
-    } yield Resolver.MavenRepository(id, url, None, Nil)
+    } yield Resolver.MavenRepository(id, url, None, None)
 
   def parseResolvers(input: List[String]): List[Resolver] =
     input.mkString.split("""\[INFO]""").toList.flatMap { line =>

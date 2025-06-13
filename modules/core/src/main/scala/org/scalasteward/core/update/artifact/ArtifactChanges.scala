@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,11 @@
 package org.scalasteward.core.update.artifact
 
 import io.circe.Decoder
-import io.circe.generic.extras.{semiauto, Configuration}
+import io.circe.generic.semiauto.*
 
 final case class ArtifactChanges(changes: List[ArtifactChange])
 
 object ArtifactChanges {
-  implicit val configuration: Configuration =
-    Configuration.default.withDefaults
-
   implicit val artifactChangesDecoder: Decoder[ArtifactChanges] =
-    semiauto.deriveConfiguredDecoder
+    deriveDecoder
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,18 @@
 
 package org.scalasteward.core.nurture
 
-import cats.implicits._
+import cats.implicits.*
 import cats.{Id, Monad}
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import org.http4s.Uri
-import org.scalasteward.core.data._
+import org.scalasteward.core.data.*
 import org.scalasteward.core.forge.data.{PullRequestNumber, PullRequestState}
 import org.scalasteward.core.git
 import org.scalasteward.core.git.{Branch, Sha1}
 import org.scalasteward.core.nurture.PullRequestRepository.Entry
 import org.scalasteward.core.persistence.KeyValueStore
+import org.scalasteward.core.repoconfig.RetractedArtifact
 import org.scalasteward.core.update.UpdateAlg
 import org.scalasteward.core.util.{DateTimeAlg, Timestamp}
 
@@ -80,6 +81,29 @@ final class PullRequestRepository[F[_]](kvStore: KeyValueStore[F, Repo, Map[Uri,
       }.flatten.toList.sortBy(_.number.value)
     }
 
+  def getRetractedPullRequests(
+      repo: Repo,
+      allRetractedArtifacts: List[RetractedArtifact]
+  ): F[List[(PullRequestData[Id], RetractedArtifact)]] =
+    kvStore.getOrElse(repo, Map.empty).map { pullRequets =>
+      pullRequets.flatMap {
+        case (
+              url,
+              Entry(baseSha1, u: Update.Single, PullRequestState.Open, _, number, updateBranch)
+            ) =>
+          for {
+            prNumber <- number
+            retractedArtifact <- allRetractedArtifacts.find(_.isRetracted(u))
+          } yield {
+            val branch = updateBranch.getOrElse(git.branchFor(u, repo.branch))
+            val data =
+              PullRequestData[Id](url, baseSha1, u, PullRequestState.Open, prNumber, branch)
+            (data, retractedArtifact)
+          }
+        case _ => Map.empty
+      }.toList
+    }
+
   def findLatestPullRequest(
       repo: Repo,
       crossDependency: CrossDependency,
@@ -109,7 +133,7 @@ final class PullRequestRepository[F[_]](kvStore: KeyValueStore[F, Repo, Map[Uri,
 
   def lastPullRequestCreatedAtByArtifact(repo: Repo): F[Map[(GroupId, String), Timestamp]] =
     kvStore.get(repo).map {
-      case None => Map.empty
+      case None               => Map.empty
       case Some(pullRequests) =>
         pullRequests.values
           .flatMap { entry =>

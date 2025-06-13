@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,17 @@
 package org.scalasteward.core.buildtool.sbt.data
 
 import cats.Order
-import cats.syntax.all._
-import io.circe.Codec
-import io.circe.generic.extras.semiauto._
+import cats.syntax.all.*
+import io.circe.{Decoder, Encoder}
 
 final case class SbtVersion(value: String)
 
 object SbtVersion {
-  implicit val sbtVersionCodec: Codec[SbtVersion] =
-    deriveUnwrappedCodec
+  implicit val sbtVersionDecoder: Decoder[SbtVersion] =
+    Decoder[String].map(SbtVersion.apply)
+
+  implicit val sbtVersionEncoder: Encoder[SbtVersion] =
+    Encoder[String].contramap(_.value)
 
   implicit val sbtVersionOrder: Order[SbtVersion] =
     Order[String].contramap(_.value)

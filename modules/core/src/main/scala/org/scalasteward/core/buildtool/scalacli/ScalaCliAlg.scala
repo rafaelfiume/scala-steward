@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,11 @@
 package org.scalasteward.core.buildtool.scalacli
 
 import cats.Monad
-import cats.syntax.all._
+import cats.syntax.all.*
 import org.scalasteward.core.buildtool.sbt.SbtAlg
 import org.scalasteward.core.buildtool.{BuildRoot, BuildToolAlg}
 import org.scalasteward.core.data.Scope
+import org.scalasteward.core.edit.scalafix.ScalafixMigration
 import org.scalasteward.core.git.GitAlg
 import org.scalasteward.core.io.process.SlurpOptions
 import org.scalasteward.core.io.{FileAlg, ProcessAlg, WorkspaceAlg}
@@ -91,6 +92,17 @@ final class ScalaCliAlg[F[_]](implicit
       _ <- fileAlg.deleteForce(buildRootDir / exportDir)
     } yield dependencies
 
-  override protected val scalafixIssue: Option[String] =
-    Some("https://github.com/VirtusLab/scala-cli/issues/647")
+  override def runMigration(buildRoot: BuildRoot, migration: ScalafixMigration): F[Unit] =
+    for {
+      buildRootDir <- workspaceAlg.buildRootDir(buildRoot)
+      cmd = Nel.of(
+        "scala-cli",
+        "--power",
+        "fix",
+        "--enable-built-in-rules=false",
+        "--scalafix-rules"
+      ) ::: migration.rewriteRules.append(buildRootDir.pathAsString)
+      slurpOptions = SlurpOptions.ignoreBufferOverflow
+      _ <- processAlg.execSandboxed(cmd, buildRootDir, slurpOptions = slurpOptions)
+    } yield ()
 }

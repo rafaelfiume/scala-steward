@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 package org.scalasteward.core.repoconfig
 
 import cats.Eq
-import cats.syntax.all._
-import io.circe.generic.semiauto._
+import cats.syntax.all.*
+import io.circe.generic.semiauto.*
 import io.circe.{Decoder, Encoder}
 
 final case class VersionPattern(
@@ -32,6 +32,10 @@ final case class VersionPattern(
       suffix.forall(version.endsWith) &&
       exact.forall(_ === version) &&
       contains.forall(version.contains)
+
+  /** Returns `true` if only `prefix` is defined. */
+  private def isPrefixPattern: Boolean =
+    prefix.isDefined && suffix.isEmpty && exact.isEmpty && contains.isEmpty
 }
 
 object VersionPattern {
@@ -41,6 +45,9 @@ object VersionPattern {
   implicit val versionPatternDecoder: Decoder[VersionPattern] =
     deriveDecoder[VersionPattern].or(Decoder[String].map(s => VersionPattern(prefix = Some(s))))
 
-  implicit val versionPatternEncoder: Encoder[VersionPattern] =
-    deriveEncoder
+  implicit val versionPatternEncoder: Encoder[VersionPattern] = {
+    val prefixEncoder = Encoder.encodeOption[String]
+    val vpEncoder = deriveEncoder[VersionPattern]
+    Encoder.instance(vp => if (vp.isPrefixPattern) prefixEncoder(vp.prefix) else vpEncoder(vp))
+  }
 }

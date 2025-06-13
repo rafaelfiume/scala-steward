@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 
 package org.scalasteward.core.forge.azurerepos
 
-import io.circe.generic.semiauto._
+import io.circe.generic.semiauto.*
 import io.circe.{Decoder, Encoder}
 import org.http4s.Uri
-import org.scalasteward.core.forge.data._
+import org.scalasteward.core.forge.data.*
 import org.scalasteward.core.git.{Branch, Sha1}
 import org.scalasteward.core.util.unexpectedString
 import org.scalasteward.core.util.uri.uriDecoder
@@ -38,7 +38,7 @@ private[azurerepos] object PullRequestPayload {
   def from(data: NewPullRequestData): PullRequestPayload =
     PullRequestPayload(
       sourceRefName = withPrefix(data.head),
-      targetRefName = data.base.name,
+      targetRefName = withPrefix(data.base.name),
       title = data.title,
       labels = Option.when(data.labels.nonEmpty)(data.labels),
       description = data.body

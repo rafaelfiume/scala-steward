@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package org.scalasteward.core.scalafmt
 
 import cats.Monad
 import cats.data.OptionT
-import cats.syntax.all._
+import cats.syntax.all.*
 import io.circe.ParsingFailure
 import org.scalasteward.core.buildtool.BuildRoot
 import org.scalasteward.core.data.{Resolver, Scope, Version}
@@ -28,7 +28,7 @@ import org.scalasteward.core.scalafmt.ScalafmtAlg.{opts, parseScalafmtConf}
 import org.scalasteward.core.util.Nel
 import org.typelevel.log4cats.Logger
 
-final class ScalafmtAlg[F[_]](defaultResolver: Resolver)(implicit
+final class ScalafmtAlg[F[_]](defaultResolvers: List[Resolver])(implicit
     fileAlg: FileAlg[F],
     logger: Logger[F],
     processAlg: ProcessAlg[F],
@@ -48,7 +48,7 @@ final class ScalafmtAlg[F[_]](defaultResolver: Resolver)(implicit
 
   def getScopedScalafmtDependency(buildRoot: BuildRoot): F[Option[Scope.Dependencies]] =
     OptionT(getScalafmtVersion(buildRoot))
-      .map(version => Scope(List(scalafmtDependency(version)), List(defaultResolver)))
+      .map(version => Scope(List(scalafmtDependency(version)), defaultResolvers))
       .value
 
   def reformatChanged(buildRoot: BuildRoot): F[Unit] =

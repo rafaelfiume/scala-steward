@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,12 @@ package org.scalasteward.core.io
 
 import better.files.File
 import cats.effect.{Resource, Sync}
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{ApplicativeError, MonadThrow}
 import fs2.Stream
 import org.apache.commons.io.FileUtils
 import org.http4s.Uri
-import org.http4s.implicits._
+import org.http4s.syntax.literals.*
 import org.typelevel.log4cats.Logger
 import scala.io.Source
 

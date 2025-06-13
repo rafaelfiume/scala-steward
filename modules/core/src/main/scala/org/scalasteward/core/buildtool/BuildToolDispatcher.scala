@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,8 @@
 package org.scalasteward.core.buildtool
 
 import cats.Monad
-import cats.syntax.all._
+import cats.syntax.all.*
+import org.scalasteward.core.buildtool.gradle.GradleAlg
 import org.scalasteward.core.buildtool.maven.MavenAlg
 import org.scalasteward.core.buildtool.mill.MillAlg
 import org.scalasteward.core.buildtool.sbt.SbtAlg
@@ -29,6 +30,7 @@ import org.scalasteward.core.scalafmt.ScalafmtAlg
 import org.typelevel.log4cats.Logger
 
 final class BuildToolDispatcher[F[_]](implicit
+    gradleAlg: GradleAlg[F],
     logger: Logger[F],
     mavenAlg: MavenAlg[F],
     millAlg: MillAlg[F],
@@ -53,7 +55,7 @@ final class BuildToolDispatcher[F[_]](implicit
       buildTools.traverse_(_.runMigration(buildRoot, migration))
     })
 
-  private val allBuildTools = List(mavenAlg, millAlg, sbtAlg, scalaCliAlg)
+  private val allBuildTools = List(gradleAlg, mavenAlg, millAlg, sbtAlg, scalaCliAlg)
   private val fallbackBuildTool = List(sbtAlg)
 
   private def findBuildTools(buildRoot: BuildRoot): F[(BuildRoot, List[BuildToolAlg[F]])] =

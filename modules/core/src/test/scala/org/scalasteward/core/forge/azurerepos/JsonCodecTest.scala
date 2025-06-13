@@ -1,13 +1,13 @@
 package org.scalasteward.core.forge.azurerepos
 
-import io.circe.literal._
-import io.circe.syntax._
+import io.circe.literal.*
+import io.circe.syntax.*
 import munit.FunSuite
 import org.scalasteward.core.forge.data.NewPullRequestData
 import org.scalasteward.core.git.Branch
 
 class JsonCodecTest extends FunSuite {
-  import JsonCodec._
+  import JsonCodec.*
 
   private val data = NewPullRequestData(
     title = "Test MR title",
@@ -24,7 +24,7 @@ class JsonCodecTest extends FunSuite {
     val expected =
       json"""{
                "sourceRefName" : "refs/heads/source",
-               "targetRefName" : "main",
+               "targetRefName" : "refs/heads/main",
                "title" : "Test MR title",
                "labels" : null,
                "description" : "Test MR body"
@@ -38,7 +38,7 @@ class JsonCodecTest extends FunSuite {
     val expected =
       json"""{
                "sourceRefName" : "refs/heads/source",
-               "targetRefName" : "main",
+               "targetRefName" : "refs/heads/main",
                "title" : "Test MR title",
                "labels" : [ "foo", "bar" ],
                "description" : "Test MR body"

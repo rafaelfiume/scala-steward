@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 
 package org.scalasteward.core.buildtool.sbt
 
-import cats.implicits._
+import cats.implicits.*
 import io.circe.Decoder
-import io.circe.parser._
-import org.scalasteward.core.data._
+import io.circe.parser.*
+import org.scalasteward.core.data.*
 
 object parser {
   private val regex = """sbt.version\s*=\s*(\S+)""".r
@@ -32,7 +32,7 @@ object parser {
     val chunks = fs2.Stream.emits(lines).map(removeSbtNoise).split(_ === "--- snip ---")
     val decoder = Decoder[Dependency].either(Decoder[Resolver])
     chunks.mapFilter { chunk =>
-      val (dependencies, resolvers) = chunk.toList.flatMap(decode(_)(decoder).toList).separate
+      val (dependencies, resolvers) = chunk.toList.flatMap(decode(_)(using decoder).toList).separate
       Option.when(dependencies.nonEmpty && resolvers.nonEmpty)(
         Scope(dependencies, resolvers.sorted)
       )

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@
 package org.scalasteward.core.edit.update
 
 import cats.Foldable
-import cats.syntax.all._
+import cats.syntax.all.*
 import java.util.regex.Pattern
 import org.scalasteward.core.buildtool.mill.MillAlg
 import org.scalasteward.core.buildtool.sbt.{buildPropertiesName, isSbtUpdate}
 import org.scalasteward.core.data.{Dependency, Update}
-import org.scalasteward.core.edit.update.data.VersionPosition._
-import org.scalasteward.core.edit.update.data._
+import org.scalasteward.core.edit.update.data.*
+import org.scalasteward.core.edit.update.data.VersionPosition.*
 import org.scalasteward.core.scalafmt.{isScalafmtCoreUpdate, scalafmtConfName}
 import org.scalasteward.core.util
 import org.scalasteward.core.util.Nel
@@ -70,9 +70,13 @@ object Selector {
     versionPositions
       .collect { case p: DependencyDef => p }
       .filter {
-        case p: MillDependency => scalaCliUsingLib.matcher(p.before).matches() || !p.isCommented
-        case p: SbtDependency  => !p.isCommented && !p.before.toLowerCase.contains("previous")
-        case _                 => true
+        case p: MillDependency =>
+          scalaCliUsingLib.matcher(p.before).matches() ||
+          scalaCliUsingDep.matcher(p.before).matches() ||
+          scalaCliUsingTestDep.matcher(p.before).matches() ||
+          !p.isCommented
+        case p: SbtDependency => !p.isCommented && !p.before.toLowerCase.contains("previous")
+        case _                => true
       }
       .filter { p =>
         val artifactIdNames = Set(p.artifactId, p.artifactId.takeWhile(_ =!= '_'))
@@ -81,8 +85,14 @@ object Selector {
         }
       }
 
-  private def scalaCliUsingLib: Pattern =
+  private val scalaCliUsingLib: Pattern =
     Pattern.compile("""//>\s+using\s+lib\s+""")
+
+  private val scalaCliUsingDep: Pattern =
+    Pattern.compile("""//>\s+using\s+dep\s+""")
+
+  private val scalaCliUsingTestDep: Pattern =
+    Pattern.compile("""//>\s+using\s+test\.dep\s+""")
 
   private def scalaValInDependencyDefPositions(
       versionPositions: List[VersionPosition],
@@ -117,8 +127,7 @@ object Selector {
   private def heuristic1SearchTerms(update: Update.Single): List[String] = {
     val terms = update match {
       case s: Update.ForArtifactId => List(s.artifactId.name)
-      case g: Update.ForGroupId =>
-        g.artifactIds.map(_.name).toList ++ g.artifactIdsPrefix.map(_.value).toList
+      case g: Update.ForGroupId    => g.artifactIds.map(_.name).toList ++ g.artifactIdsPrefix.toList
     }
     terms.map(Update.nameOf(update.groupId, _))
   }
@@ -170,10 +179,7 @@ object Selector {
       versionPositions: List[VersionPosition]
   ): List[VersionPosition] =
     if (MillAlg.isMillMainUpdate(update))
-      versionPositions.filter(f =>
-        f.version.path.endsWith(MillAlg.millVersionNameInConfig) ||
-          f.version.path.endsWith(MillAlg.millVersionName)
-      )
+      versionPositions.filter(_.version.path.endsWith(MillAlg.millVersionName))
     else List.empty
 
   private def sbtVersionPositions(

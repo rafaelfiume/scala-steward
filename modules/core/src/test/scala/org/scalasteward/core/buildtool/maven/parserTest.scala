@@ -1,7 +1,7 @@
 package org.scalasteward.core.buildtool.maven
 
 import munit.FunSuite
-import org.scalasteward.core.TestSyntax._
+import org.scalasteward.core.TestSyntax.*
 import org.scalasteward.core.data.Resolver.MavenRepository
 
 class parserTest extends FunSuite {
@@ -64,10 +64,10 @@ class parserTest extends FunSuite {
         "sonatype-nexus-snapshots",
         "https://oss.sonatype.org/content/repositories/snapshots",
         None,
-        Nil
+        None
       ),
-      MavenRepository("bintrayakkamaven", "https://dl.bintray.com/akka/maven/", None, Nil),
-      MavenRepository("apache.snapshots", "http://repository.apache.org/snapshots", None, Nil)
+      MavenRepository("bintrayakkamaven", "https://dl.bintray.com/akka/maven/", None, None),
+      MavenRepository("apache.snapshots", "http://repository.apache.org/snapshots", None, None)
     )
     assertEquals(resolvers, expected)
   }

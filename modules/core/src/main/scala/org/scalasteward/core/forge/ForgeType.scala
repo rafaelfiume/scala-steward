@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,14 @@
 package org.scalasteward.core.forge
 
 import cats.Eq
-import cats.syntax.all._
+import cats.syntax.all.*
 import org.http4s.Uri
-import org.http4s.syntax.literals._
+import org.http4s.syntax.literals.*
 import org.scalasteward.core.application.Config.ForgeCfg
 import org.scalasteward.core.data.Repo
-import org.scalasteward.core.forge.ForgeType._
+import org.scalasteward.core.forge.ForgeType.*
 import org.scalasteward.core.git.Branch
 import org.scalasteward.core.util.unexpectedString
-
 import scala.annotation.nowarn
 
 sealed trait ForgeType extends Product with Serializable {
@@ -50,6 +49,8 @@ sealed trait ForgeType extends Product with Serializable {
     */
   def pullRequestHeadFor(@nowarn fork: Repo, updateBranch: Branch): String = updateBranch.name
 
+  val maximumPullRequestLength: Int = 65536
+
   val asString: String = this match {
     case AzureRepos      => "azure-repos"
     case Bitbucket       => "bitbucket"
@@ -67,6 +68,7 @@ object ForgeType {
   case object AzureRepos extends ForgeType {
     override val publicWebHost: Some[String] = Some("dev.azure.com")
     override def supportsForking: Boolean = false
+    override val maximumPullRequestLength: Int = 4000
     val diffs: DiffUriPattern = (from, to) =>
       _ / "branchCompare" +? ("baseVersion", s"GT$from") +? ("targetVersion", s"GT$to")
     val files: FileUriPattern =
@@ -94,6 +96,7 @@ object ForgeType {
     override val publicWebHost: None.type = None
     override def supportsForking: Boolean = false
     override def supportsLabels: Boolean = false
+    override val maximumPullRequestLength: Int = 32768
     val diffs: DiffUriPattern = Bitbucket.diffs
     val files: FileUriPattern = fileName => _ / "browse" / fileName
   }

@@ -5,13 +5,13 @@ import io.circe.parser.decode
 import java.time.Instant
 import munit.FunSuite
 import org.scalasteward.core.TestInstances.dummyRepoCache
-import org.scalasteward.core.TestSyntax._
+import org.scalasteward.core.TestSyntax.*
 import org.scalasteward.core.data.Resolver.MavenRepository
 import org.scalasteward.core.data.{DependencyInfo, Repo, RepoData, Scope}
 import org.scalasteward.core.mock.MockConfig.config
 import org.scalasteward.core.mock.MockContext.context.pruningAlg
-import org.scalasteward.core.mock.MockState
 import org.scalasteward.core.mock.MockState.TraceEntry.{Cmd, Log}
+import org.scalasteward.core.mock.{MockEffOps, MockState}
 import org.scalasteward.core.repocache.RepoCache
 import org.scalasteward.core.repoconfig.RepoConfig
 
@@ -28,7 +28,7 @@ class PruningAlgTest extends FunSuite {
           |    }
           |  }
           |}""".stripMargin
-    )
+    ): @unchecked
     val pullRequestsFile =
       config.workspace / "store/pull_requests/v2/github/fthomas/scalafix-test/pull_requests.json"
     val pullRequestsContent =
@@ -116,7 +116,7 @@ class PruningAlgTest extends FunSuite {
           |    }
           |  }
           |}""".stripMargin
-    )
+    ): @unchecked
     val pullRequestsFile =
       config.workspace / s"store/pull_requests/v2/github/${repo.toPath}/pull_requests.json"
     val pullRequestsContent =
@@ -191,7 +191,7 @@ class PruningAlgTest extends FunSuite {
             DependencyInfo("org.scala-lang".g % "scala-library".a % "2.12.14", List("build.sbt")),
             DependencyInfo("org.scala-lang".g % "scala-library".a % "2.13.5", List("build.sbt"))
           ),
-          List(MavenRepository("public", "https://repo5.org/maven/", None, Nil))
+          List(MavenRepository("public", "https://repo5.org/maven/", None, None))
         )
       )
     )
@@ -261,7 +261,7 @@ class PruningAlgTest extends FunSuite {
           |    }
           |  }
           |}""".stripMargin
-    )
+    ): @unchecked
     val pullRequestsFile =
       config.workspace / s"store/pull_requests/v2/github/${repo.toPath}/pull_requests.json"
     val timestampNow = Instant.now().toEpochMilli
@@ -373,7 +373,7 @@ class PruningAlgTest extends FunSuite {
           |    }
           |  }
           |}""".stripMargin
-    )
+    ): @unchecked
     val pullRequestsFile =
       config.workspace / s"store/pull_requests/v2/github/${repo.toPath}/pull_requests.json"
     val pullRequestsContent =
@@ -488,7 +488,7 @@ class PruningAlgTest extends FunSuite {
           |    }
           |  }
           |}""".stripMargin
-    )
+    ): @unchecked
     val timestampNow = Instant.now().toEpochMilli
     val pullRequestsFile =
       config.workspace / s"store/pull_requests/v2/github/${repo.toPath}/pull_requests.json"

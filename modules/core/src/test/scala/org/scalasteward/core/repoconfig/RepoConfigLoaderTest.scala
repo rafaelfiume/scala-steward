@@ -7,6 +7,7 @@ import org.scalasteward.core.application.Config.RepoConfigCfg
 import org.scalasteward.core.mock.MockConfig.mockRoot
 import org.scalasteward.core.mock.MockContext.context.{fileAlg, logger}
 import org.scalasteward.core.mock.MockContext.mockState
+import org.scalasteward.core.mock.MockEffOps
 
 class RepoConfigLoaderTest extends FunSuite {
   test("config file merging order") {
@@ -37,6 +38,9 @@ class RepoConfigLoaderTest extends FunSuite {
       .unsafeRunSync()
       .getOrElse(None)
     assert(clue(repoConfig).isDefined)
-    assertEquals(repoConfig.get.updates.pin.head.version, Some(VersionPattern(Some("3.4."))))
+    assertEquals(
+      repoConfig.get.updatesOrDefault.pinOrDefault.head.version,
+      Some(VersionPattern(Some("3.4.")))
+    )
   }
 }

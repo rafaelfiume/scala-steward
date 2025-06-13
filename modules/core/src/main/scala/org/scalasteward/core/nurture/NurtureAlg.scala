@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,18 +17,18 @@
 package org.scalasteward.core.nurture
 
 import cats.effect.Concurrent
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, Id}
 import org.scalasteward.core.application.Config.ForgeCfg
 import org.scalasteward.core.coursier.CoursierAlg
+import org.scalasteward.core.data.*
 import org.scalasteward.core.data.ProcessResult.{Created, Ignored, Updated}
-import org.scalasteward.core.data._
 import org.scalasteward.core.edit.{EditAlg, EditAttempt}
+import org.scalasteward.core.forge.data.*
 import org.scalasteward.core.forge.data.NewPullRequestData.{filterLabels, labelsFor}
-import org.scalasteward.core.forge.data._
 import org.scalasteward.core.forge.{ForgeApiAlg, ForgeRepoAlg}
 import org.scalasteward.core.git.{Branch, Commit, GitAlg}
-import org.scalasteward.core.repoconfig.PullRequestUpdateStrategy
+import org.scalasteward.core.repoconfig.{PullRequestUpdateStrategy, RetractedArtifact}
 import org.scalasteward.core.util.logger.LoggerOps
 import org.scalasteward.core.util.{Nel, UrlChecker}
 import org.scalasteward.core.{git, util}
@@ -51,7 +51,7 @@ final class NurtureAlg[F[_]](config: ForgeCfg)(implicit
       _ <- logger.info(s"Nurture ${data.repo.show}")
       baseBranch <- cloneAndSync(data.repo, fork)
       (grouped, notGrouped) = Update.groupByPullRequestGroup(
-        data.config.pullRequests.grouping,
+        data.config.pullRequestsOrDefault.groupingOrDefault,
         updates.toList
       )
       finalUpdates = Update.groupByGroupId(notGrouped) ++ grouped
@@ -80,7 +80,7 @@ final class NurtureAlg[F[_]](config: ForgeCfg)(implicit
           val updateData = UpdateData(data, fork, update, baseBranch, baseSha1, updateBranch)
           processUpdate(updateData)
         }
-        .through(util.takeUntilMaybe(0, data.config.updates.limit.map(_.value)) {
+        .through(util.takeUntilMaybe(0, data.config.updatesOrDefault.limit.map(_.value)) {
           case Ignored    => 0
           case Updated    => 1
           case Created(_) => 1
@@ -231,7 +231,9 @@ final class NurtureAlg[F[_]](config: ForgeCfg)(implicit
           .flatTraverse(gitAlg.findFilesContaining(data.repo, _))
           .map(_.distinct)
       allLabels = labelsFor(data.update, edits, filesWithOldVersion, artifactIdToVersionScheme)
-      labels = filterLabels(allLabels, data.repoData.config.pullRequests.includeMatchedLabels)
+      pullRequestsConfig = data.repoData.config.pullRequestsOrDefault
+      labels =
+        filterLabels(allLabels, pullRequestsConfig.includeMatchedLabels)
     } yield NewPullRequestData.from(
       data = data,
       branchName = config.tpe.pullRequestHeadFor(data.fork, data.updateBranch),
@@ -240,7 +242,9 @@ final class NurtureAlg[F[_]](config: ForgeCfg)(implicit
       artifactIdToUpdateInfoUrls = artifactIdToUpdateInfoUrls.toMap,
       filesWithOldVersion = filesWithOldVersion,
       addLabels = config.addLabels,
-      labels = data.repoData.config.pullRequests.customLabels ++ labels
+      draft = pullRequestsConfig.draft.contains(true),
+      labels = pullRequestsConfig.customLabelsOrDefault ++ labels,
+      maximumPullRequestLength = config.tpe.maximumPullRequestLength
     )
 
   private def createPullRequest(data: UpdateData, edits: List[EditAttempt]): F[ProcessResult] =
@@ -274,7 +278,7 @@ final class NurtureAlg[F[_]](config: ForgeCfg)(implicit
 
   private def shouldBeUpdated(data: UpdateData): F[Boolean] = {
     val result = gitAlg.isMerged(data.repo, data.updateBranch, data.baseBranch).flatMap {
-      case true => (false, "PR has been merged").pure[F]
+      case true  => (false, "PR has been merged").pure[F]
       case false =>
         gitAlg.branchAuthors(data.repo, data.updateBranch, data.baseBranch).flatMap { authors =>
           if (authors.length >= 2)
@@ -306,4 +310,30 @@ final class NurtureAlg[F[_]](config: ForgeCfg)(implicit
       requestData <- preparePullRequest(data, edits)
       _ <- forgeApiAlg.updatePullRequest(number: PullRequestNumber, data.repo, requestData)
     } yield result
+
+  def closeRetractedPullRequests(data: RepoData): F[Unit] =
+    pullRequestRepository
+      .getRetractedPullRequests(data.repo, data.config.updatesOrDefault.retractedOrDefault)
+      .flatMap {
+        _.traverse_ { case (oldPr, retractedArtifact) =>
+          closeRetractedPullRequest(data, oldPr, retractedArtifact)
+        }
+      }
+
+  private def closeRetractedPullRequest(
+      data: RepoData,
+      oldPr: PullRequestData[Id],
+      retractedArtifact: RetractedArtifact
+  ): F[Unit] =
+    logger.attemptWarn.label_(
+      s"Closing retracted PR ${oldPr.url.renderString} for ${oldPr.update.show} because of '${retractedArtifact.reason}'"
+    ) {
+      for {
+        _ <- pullRequestRepository.changeState(data.repo, oldPr.url, PullRequestState.Closed)
+        comment = retractedArtifact.retractionMsg
+        _ <- forgeApiAlg.commentPullRequest(data.repo, oldPr.number, comment)
+        _ <- forgeApiAlg.closePullRequest(data.repo, oldPr.number)
+        _ <- deleteRemoteBranch(data.repo, oldPr.updateBranch)
+      } yield F.unit
+    }
 }

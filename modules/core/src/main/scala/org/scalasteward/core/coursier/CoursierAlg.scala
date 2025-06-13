@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package org.scalasteward.core.coursier
 
 import cats.Parallel
 import cats.effect.Async
-import cats.implicits._
+import cats.implicits.*
 import coursier.cache.{CachePolicy, FileCache}
 import coursier.core.{Authentication, Project}
 import coursier.{Fetch, Module, ModuleName, Organization}
@@ -101,7 +101,7 @@ object CoursierAlg {
       private def convertResolver(resolver: Resolver): F[coursier.Repository] =
         toCoursierRepository(resolver) match {
           case Right(repository) => F.pure(repository)
-          case Left(message) =>
+          case Left(message)     =>
             logger.error(s"Failed to convert $resolver: $message") >>
               F.raiseError[coursier.Repository](new Throwable(message))
         }
@@ -123,10 +123,10 @@ object CoursierAlg {
   private def toCoursierRepository(resolver: Resolver): Either[String, coursier.Repository] =
     resolver match {
       case Resolver.MavenRepository(_, location, creds, headers) =>
-        val authentication = toCoursierAuthentication(creds, headers)
+        val authentication = toCoursierAuthentication(creds, headers.getOrElse(Nil))
         Right(coursier.maven.SbtMavenRepository.apply(location, authentication))
       case Resolver.IvyRepository(_, pattern, creds, headers) =>
-        val authentication = toCoursierAuthentication(creds, headers)
+        val authentication = toCoursierAuthentication(creds, headers.getOrElse(Nil))
         coursier.ivy.IvyRepository.parse(pattern, authentication = authentication)
     }
 

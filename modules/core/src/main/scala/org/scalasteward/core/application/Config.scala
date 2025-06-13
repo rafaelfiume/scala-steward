@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package org.scalasteward.core.application
 import better.files.File
 import org.http4s.Uri
 import org.scalasteward.core.application.Cli.EnvVar
-import org.scalasteward.core.application.Config._
+import org.scalasteward.core.application.Config.*
 import org.scalasteward.core.data.Resolver
 import org.scalasteward.core.forge.ForgeType
 import org.scalasteward.core.forge.github.GitHubApp
@@ -62,7 +62,7 @@ final case class Config(
     azureReposCfg: AzureReposCfg,
     githubApp: Option[GitHubApp],
     urlCheckerTestUrls: Nel[Uri],
-    defaultResolver: Resolver,
+    defaultResolvers: List[Resolver],
     refreshBackoffPeriod: FiniteDuration,
     exitCodePolicy: ExitCodePolicy
 ) {
@@ -81,7 +81,8 @@ object Config {
   final case class GitCfg(
       gitAuthor: Author,
       gitAskPass: File,
-      signCommits: Boolean
+      signCommits: Boolean,
+      signoff: Boolean
   )
 
   final case class ForgeCfg(

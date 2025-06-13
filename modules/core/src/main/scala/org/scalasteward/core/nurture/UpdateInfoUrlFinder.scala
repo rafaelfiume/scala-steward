@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,14 @@
 package org.scalasteward.core.nurture
 
 import cats.Monad
-import cats.syntax.all._
+import cats.syntax.all.*
 import org.http4s.Uri
 import org.scalasteward.core.application.Config.ForgeCfg
 import org.scalasteward.core.coursier.DependencyMetadata
 import org.scalasteward.core.data.Version
 import org.scalasteward.core.forge.ForgeRepo
-import org.scalasteward.core.forge.ForgeType._
-import org.scalasteward.core.nurture.UpdateInfoUrl._
+import org.scalasteward.core.forge.ForgeType.*
+import org.scalasteward.core.nurture.UpdateInfoUrl.*
 import org.scalasteward.core.nurture.UpdateInfoUrlFinder.possibleUpdateInfoUrls
 import org.scalasteward.core.util.UrlChecker
 
@@ -89,8 +89,8 @@ object UpdateInfoUrlFinder {
       fileNames.map(f => wrap(forgeRepo.fileUrlFor(f)))
 
     gitHubReleaseNotesFor(forgeRepo, update.nextVersion) ++
-      customUrls(CustomReleaseNotes, possibleReleaseNotesFilenames) ++
-      customUrls(CustomChangelog, possibleChangelogFilenames) ++
+      customUrls(CustomReleaseNotes.apply, possibleReleaseNotesFilenames) ++
+      customUrls(CustomChangelog.apply, possibleChangelogFilenames) ++
       possibleVersionDiffs(forgeRepo, update)
   }
 

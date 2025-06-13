@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,16 @@
 
 package org.scalasteward.core.application
 
-import cats.effect._
-import cats.effect.implicits._
-import cats.syntax.all._
-import eu.timepit.refined.auto._
+import cats.effect.*
+import cats.effect.implicits.*
+import cats.syntax.all.*
+import eu.timepit.refined.types.numeric.PosInt
 import org.http4s.Uri
 import org.http4s.client.Client
 import org.http4s.headers.`User-Agent`
 import org.scalasteward.core.application.Config.ForgeCfg
 import org.scalasteward.core.buildtool.BuildToolDispatcher
+import org.scalasteward.core.buildtool.gradle.GradleAlg
 import org.scalasteward.core.buildtool.maven.MavenAlg
 import org.scalasteward.core.buildtool.mill.MillAlg
 import org.scalasteward.core.buildtool.sbt.SbtAlg
@@ -34,21 +35,20 @@ import org.scalasteward.core.coursier.{CoursierAlg, VersionsCache}
 import org.scalasteward.core.data.Repo
 import org.scalasteward.core.edit.EditAlg
 import org.scalasteward.core.edit.hooks.HookExecutor
-import org.scalasteward.core.edit.scalafix._
+import org.scalasteward.core.edit.scalafix.*
 import org.scalasteward.core.edit.update.ScannerAlg
-import org.scalasteward.core.forge.github.{GitHubAppApiAlg, GitHubAuthAlg}
 import org.scalasteward.core.forge.{ForgeApiAlg, ForgeAuthAlg, ForgeRepoAlg, ForgeSelection}
 import org.scalasteward.core.git.{GenGitAlg, GitAlg}
 import org.scalasteward.core.io.{FileAlg, ProcessAlg, WorkspaceAlg}
 import org.scalasteward.core.nurture.{NurtureAlg, PullRequestRepository, UpdateInfoUrlFinder}
 import org.scalasteward.core.persistence.{CachingKeyValueStore, JsonKeyValueStore}
-import org.scalasteward.core.repocache._
+import org.scalasteward.core.repocache.*
 import org.scalasteward.core.repoconfig.{RepoConfigAlg, RepoConfigLoader}
 import org.scalasteward.core.scalafmt.ScalafmtAlg
 import org.scalasteward.core.update.artifact.{ArtifactMigrationsFinder, ArtifactMigrationsLoader}
 import org.scalasteward.core.update.{FilterAlg, PruningAlg, UpdateAlg}
-import org.scalasteward.core.util._
-import org.scalasteward.core.util.uri._
+import org.scalasteward.core.util.*
+import org.scalasteward.core.util.uri.*
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
@@ -62,6 +62,7 @@ final class Context[F[_]](implicit
     val filterAlg: FilterAlg[F],
     val forgeRepoAlg: ForgeRepoAlg[F],
     val gitAlg: GitAlg[F],
+    val gradleAlg: GradleAlg[F],
     val hookExecutor: HookExecutor[F],
     val httpJsonClient: HttpJsonClient[F],
     val logger: Logger[F],
@@ -95,7 +96,7 @@ object Context {
       userAgent <- Resource.eval(F.fromEither(`User-Agent`.parse(1)(userAgentString)))
       middleware = ClientConfiguration
         .setUserAgent[F](userAgent)
-        .andThen(ClientConfiguration.retryAfter[F](maxAttempts = 5))
+        .andThen(ClientConfiguration.retryAfter[F](maxAttempts = PosInt.unsafeFrom(5)))
       defaultClient <- ClientConfiguration.build(
         ClientConfiguration.BuilderMiddleware.default,
         middleware
@@ -128,18 +129,18 @@ object Context {
       processAlg: ProcessAlg[F],
       workspaceAlg: WorkspaceAlg[F],
       F: Async[F]
-  ): F[Context[F]] =
+  ): F[Context[F]] = {
+    implicit val httpJsonClient: HttpJsonClient[F] = new HttpJsonClient[F]()
+    implicit val forgeAuthAlg: ForgeAuthAlg[F] = ForgeAuthAlg.create[F](config)
     for {
       _ <- F.unit
-      forgeUser = new ForgeAuthAlg[F](config.gitCfg, config.forgeCfg).forgeUser
       artifactMigrationsLoader0 = new ArtifactMigrationsLoader[F]
       artifactMigrationsFinder0 <- artifactMigrationsLoader0.createFinder(config.artifactCfg)
       scalafixMigrationsLoader0 = new ScalafixMigrationsLoader[F]
       scalafixMigrationsFinder0 <- scalafixMigrationsLoader0.createFinder(config.scalafixCfg)
       repoConfigLoader0 = new RepoConfigLoader[F]
       maybeGlobalRepoConfig <- repoConfigLoader0.loadGlobalRepoConfig(config.repoConfigCfg)
-      urlChecker0 <- UrlChecker
-        .create[F](config, ForgeSelection.authenticateIfApiHost(config.forgeCfg, forgeUser))
+      urlChecker0 <- UrlChecker.create[F](config, forgeAuthAlg.authenticateApi)
       kvsPrefix = Some(config.forgeCfg.tpe.asString)
       pullRequestsStore <- JsonKeyValueStore
         .create[F, Repo, Map[Uri, PullRequestRepository.Entry]]("pull_requests", "2", kvsPrefix)
@@ -159,30 +160,30 @@ object Context {
       implicit val dateTimeAlg: DateTimeAlg[F] = DateTimeAlg.create[F]
       implicit val repoConfigAlg: RepoConfigAlg[F] = new RepoConfigAlg[F](maybeGlobalRepoConfig)
       implicit val filterAlg: FilterAlg[F] = new FilterAlg[F]
-      implicit val gitAlg: GitAlg[F] = GenGitAlg.create[F](config.gitCfg)
-      implicit val gitHubAuthAlg: GitHubAuthAlg[F] = GitHubAuthAlg.create[F]
+      implicit val gitAlg: GitAlg[F] = GenGitAlg.create[F](config)
       implicit val hookExecutor: HookExecutor[F] = new HookExecutor[F]
-      implicit val httpJsonClient: HttpJsonClient[F] = new HttpJsonClient[F]
       implicit val repoCacheRepository: RepoCacheRepository[F] =
         new RepoCacheRepository[F](repoCacheStore)
-      implicit val forgeApiAlg: ForgeApiAlg[F] =
-        ForgeSelection.forgeApiAlg[F](config.forgeCfg, config.forgeSpecificCfg, forgeUser)
+      implicit val forgeApiAlg: ForgeApiAlg[F] = ForgeSelection
+        .forgeApiAlg[F](config.forgeCfg, config.forgeSpecificCfg, forgeAuthAlg.authenticateApi)
       implicit val forgeRepoAlg: ForgeRepoAlg[F] = new ForgeRepoAlg[F](config)
       implicit val forgeCfg: ForgeCfg = config.forgeCfg
       implicit val updateInfoUrlFinder: UpdateInfoUrlFinder[F] = new UpdateInfoUrlFinder[F]
       implicit val pullRequestRepository: PullRequestRepository[F] =
         new PullRequestRepository[F](pullRequestsStore)
       implicit val scalafixCli: ScalafixCli[F] = new ScalafixCli[F]
-      implicit val scalafmtAlg: ScalafmtAlg[F] = new ScalafmtAlg[F](config.defaultResolver)
+      implicit val scalafmtAlg: ScalafmtAlg[F] = new ScalafmtAlg[F](config.defaultResolvers)
       implicit val selfCheckAlg: SelfCheckAlg[F] = new SelfCheckAlg[F](config)
       implicit val coursierAlg: CoursierAlg[F] = CoursierAlg.create[F]
       implicit val versionsCache: VersionsCache[F] =
         new VersionsCache[F](config.cacheTtl, versionsStore)
       implicit val updateAlg: UpdateAlg[F] = new UpdateAlg[F]
+      implicit val gradleAlg: GradleAlg[F] = new GradleAlg[F](config.defaultResolvers)
       implicit val mavenAlg: MavenAlg[F] = new MavenAlg[F](config)
-      implicit val sbtAlg: SbtAlg[F] = new SbtAlg[F](config)
+      implicit val sbtAlg: SbtAlg[F] =
+        new SbtAlg[F](config.defaultResolvers, config.ignoreOptsFiles)
       implicit val scalaCliAlg: ScalaCliAlg[F] = new ScalaCliAlg[F]
-      implicit val millAlg: MillAlg[F] = new MillAlg[F](config.defaultResolver)
+      implicit val millAlg: MillAlg[F] = new MillAlg[F](config.defaultResolvers)
       implicit val buildToolDispatcher: BuildToolDispatcher[F] = new BuildToolDispatcher[F]
       implicit val refreshErrorAlg: RefreshErrorAlg[F] =
         new RefreshErrorAlg[F](refreshErrorStore, config.refreshBackoffPeriod)
@@ -192,11 +193,10 @@ object Context {
       implicit val nurtureAlg: NurtureAlg[F] = new NurtureAlg[F](config.forgeCfg)
       implicit val pruningAlg: PruningAlg[F] = new PruningAlg[F]
       implicit val reposFilesLoader: ReposFilesLoader[F] = new ReposFilesLoader[F]
-      implicit val gitHubAppApiAlg: GitHubAppApiAlg[F] =
-        new GitHubAppApiAlg[F](config.forgeCfg.apiHost)
       implicit val stewardAlg: StewardAlg[F] = new StewardAlg[F](config)
       new Context[F]
     }
+  }
 
   private val banner: String = {
     val banner =

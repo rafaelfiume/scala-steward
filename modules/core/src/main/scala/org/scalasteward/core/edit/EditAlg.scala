@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 package org.scalasteward.core.edit
 
 import cats.MonadThrow
-import cats.syntax.all._
+import cats.syntax.all.*
 import org.scalasteward.core.buildtool.BuildToolDispatcher
 import org.scalasteward.core.data.{Repo, RepoData, Update}
 import org.scalasteward.core.edit.EditAttempt.{ScalafixEdit, UpdateEdit}
@@ -29,7 +29,7 @@ import org.scalasteward.core.git.{CommitMsg, GitAlg}
 import org.scalasteward.core.io.{FileAlg, WorkspaceAlg}
 import org.scalasteward.core.repoconfig.RepoConfig
 import org.scalasteward.core.scalafmt.{scalafmtModule, ScalafmtAlg}
-import org.scalasteward.core.util.logger._
+import org.scalasteward.core.util.logger.*
 import org.typelevel.log4cats.Logger
 
 final class EditAlg[F[_]](implicit
@@ -94,7 +94,8 @@ final class EditAlg[F[_]](implicit
       result <- logger.attemptWarn.log("Scalafix migration failed") {
         buildToolDispatcher.runMigration(repo, config, migration)
       }
-      maybeCommit <- gitAlg.commitAllIfDirty(repo, migration.commitMessage(result))
+      maybeCommit <-
+        gitAlg.commitAllIfDirty(repo, migration.commitMessage(result), config.signoffCommits)
     } yield ScalafixEdit(migration, result, maybeCommit)
 
   private def applyUpdateReplacements(
@@ -109,14 +110,14 @@ final class EditAlg[F[_]](implicit
         fileAlg.editFile(repoDir / path, Substring.Replacement.applyAll[F](replacements))
       }
       _ <- reformatChangedFiles(data)
-      msgTemplate = data.config.commits.messageOrDefault
+      msgTemplate = data.config.commitsOrDefault.messageOrDefault
       commitMsg = CommitMsg.replaceVariables(msgTemplate)(update, data.repo.branch)
-      maybeCommit <- gitAlg.commitAllIfDirty(data.repo, commitMsg)
+      maybeCommit <- gitAlg.commitAllIfDirty(data.repo, commitMsg, data.config.signoffCommits)
     } yield maybeCommit.map(UpdateEdit(update, _))
 
   private def reformatChangedFiles(data: RepoData): F[Unit] = {
-    val reformat =
-      data.config.scalafmt.runAfterUpgradingOrDefault && data.cache.dependsOn(List(scalafmtModule))
+    val reformat = data.config.scalafmtOrDefault.runAfterUpgradingOrDefault &&
+      data.cache.dependsOn(List(scalafmtModule))
     F.whenA(reformat) {
       data.config.buildRootsOrDefault(data.repo).traverse_ { buildRoot =>
         logger.attemptWarn.log_(s"Reformatting changed files failed in ${buildRoot.relativePath}") {

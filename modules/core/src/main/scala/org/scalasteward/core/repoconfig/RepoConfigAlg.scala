@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@
 package org.scalasteward.core.repoconfig
 
 import better.files.File
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Functor, Monad, MonadThrow}
 import io.circe.config.parser
 import org.scalasteward.core.data.{Repo, Update}
 import org.scalasteward.core.io.{FileAlg, WorkspaceAlg}
-import org.scalasteward.core.repoconfig.RepoConfigAlg._
+import org.scalasteward.core.repoconfig.RepoConfigAlg.*
 import org.typelevel.log4cats.Logger
 
 final class RepoConfigAlg[F[_]](maybeGlobalRepoConfig: Option[RepoConfig])(implicit
@@ -94,13 +94,12 @@ object RepoConfigAlg {
       .filterA(fileAlg.isRegularFile)
 
     configFileCandidates.flatMap {
-      case Nil => F.pure(None)
+      case Nil                 => F.pure(None)
       case active :: remaining =>
         F.pure(active.some)
           .productL(
-            remaining.traverse_(file =>
-              logger.warn(s"""Ignored config file "${file.pathAsString}"""")
-            )
+            remaining
+              .traverse_(file => logger.warn(s"""Ignored config file "${file.pathAsString}""""))
           )
     }
   }
@@ -109,7 +108,7 @@ object RepoConfigAlg {
       configFile: File
   )(implicit fileAlg: FileAlg[F], F: Functor[F]): F[ConfigParsingResult] =
     fileAlg.readFile(configFile).map {
-      case None => ConfigParsingResult.FileDoesNotExist
+      case None          => ConfigParsingResult.FileDoesNotExist
       case Some(content) =>
         parseRepoConfig(content) match {
           case Left(error)       => ConfigParsingResult.ConfigIsInvalid(error)

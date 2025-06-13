@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,14 @@ package org.scalasteward.core.edit.hooks
 
 import better.files.File
 import cats.MonadThrow
-import cats.syntax.all._
+import cats.syntax.all.*
 import org.scalasteward.core.buildtool.sbt.{
   sbtArtifactId,
   sbtGroupId,
   sbtScalafixArtifactId,
   sbtScalafixGroupId
 }
-import org.scalasteward.core.data._
+import org.scalasteward.core.data.*
 import org.scalasteward.core.edit.EditAttempt
 import org.scalasteward.core.edit.EditAttempt.HookEdit
 import org.scalasteward.core.git.{gitBlameIgnoreRevsName, Commit, CommitMsg, GitAlg}
@@ -34,7 +34,7 @@ import org.scalasteward.core.io.{FileAlg, ProcessAlg, WorkspaceAlg}
 import org.scalasteward.core.repocache.RepoCache
 import org.scalasteward.core.scalafmt.{scalafmtArtifactId, scalafmtGroupId, ScalafmtAlg}
 import org.scalasteward.core.util.Nel
-import org.scalasteward.core.util.logger._
+import org.scalasteward.core.util.logger.*
 import org.typelevel.log4cats.Logger
 
 final class HookExecutor[F[_]](implicit
@@ -54,12 +54,13 @@ final class HookExecutor[F[_]](implicit
         hook.enabledByConfig(data.config)
       }
       .distinctBy(_.command)
-      .traverse(execPostUpdateHook(data.repo, update, _))
+      .traverse(execPostUpdateHook(data.repo, update, _, data.config.signoffCommits))
 
   private def execPostUpdateHook(
       repo: Repo,
       update: Update.Single,
-      hook: PostUpdateHook
+      hook: PostUpdateHook,
+      signoffCommits: Option[Boolean]
   ): F[EditAttempt] =
     for {
       _ <- logger.info(
@@ -75,9 +76,11 @@ final class HookExecutor[F[_]](implicit
       commitMessage = hook
         .commitMessage(update)
         .appendParagraph(s"Executed command: ${hook.command.mkString_(" ")}")
-      maybeHookCommit <- gitAlg.commitAllIfDirty(repo, commitMessage)
+      maybeHookCommit <- gitAlg.commitAllIfDirty(repo, commitMessage, signoffCommits)
       maybeBlameIgnoreCommit <-
-        maybeHookCommit.flatTraverse(addToGitBlameIgnoreRevs(repo, repoDir, hook, _, commitMessage))
+        maybeHookCommit.flatTraverse(
+          addToGitBlameIgnoreRevs(repo, repoDir, hook, _, commitMessage, signoffCommits)
+        )
     } yield HookEdit(hook, result, maybeHookCommit.toList ++ maybeBlameIgnoreCommit.toList)
 
   private def addToGitBlameIgnoreRevs(
@@ -85,7 +88,8 @@ final class HookExecutor[F[_]](implicit
       repoDir: File,
       hook: PostUpdateHook,
       commit: Commit,
-      commitMsg: CommitMsg
+      commitMsg: CommitMsg,
+      signoffCommits: Option[Boolean]
   ): F[Option[Commit]] =
     if (hook.addToGitBlameIgnoreRevs) {
       for {
@@ -100,7 +104,7 @@ final class HookExecutor[F[_]](implicit
         addAndCommit = gitAlg.add(repo, pathAsString).flatMap { _ =>
           val blameIgnoreCommitMsg =
             CommitMsg(s"Add '${commitMsg.title}' to $gitBlameIgnoreRevsName")
-          gitAlg.commitAllIfDirty(repo, blameIgnoreCommitMsg)
+          gitAlg.commitAllIfDirty(repo, blameIgnoreCommitMsg, signoffCommits)
         }
         maybeBlameIgnoreCommit <- gitAlg
           .checkIgnore(repo, pathAsString)
@@ -166,7 +170,7 @@ object HookExecutor {
       useSandbox = false,
       commitMessage = update => CommitMsg(s"Reformat with scalafmt ${update.nextVersion}"),
       enabledByCache = _ => true,
-      enabledByConfig = _.scalafmt.runAfterUpgradingOrDefault,
+      enabledByConfig = _.scalafmtOrDefault.runAfterUpgradingOrDefault,
       addToGitBlameIgnoreRevs = true
     )
 
@@ -196,7 +200,5 @@ object HookExecutor {
       conditionalSbtGitHubWorkflowGenerateModules.map { case (gid, aid) =>
         sbtGithubWorkflowGenerateHook(gid, aid, githubWorkflowGenerateExists)
       } ++
-      sbtTypelevelModules.map { case (gid, aid) =>
-        sbtTypelevelHook(gid, aid)
-      }
+      sbtTypelevelModules.map { case (gid, aid) => sbtTypelevelHook(gid, aid) }
 }

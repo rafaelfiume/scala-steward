@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 package org.scalasteward.core
 
-import cats._
-import cats.syntax.all._
+import cats.*
+import cats.syntax.all.*
 import fs2.Pipe
 import scala.collection.mutable.ListBuffer
 
@@ -36,7 +36,7 @@ package object util {
   /** Like `Semigroup[Option[A]].combine` but allows to specify how `A`s are combined. */
   def combineOptions[A](x: Option[A], y: Option[A])(f: (A, A) => A): Option[A] =
     x match {
-      case None => y
+      case None     => y
       case Some(xv) =>
         y match {
           case None     => x

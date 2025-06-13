@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 package org.scalasteward.core.edit.update
 
 import org.scalasteward.core.data.Version
-import org.scalasteward.core.edit.update.data.VersionPosition._
+import org.scalasteward.core.edit.update.data.VersionPosition.*
 import org.scalasteward.core.edit.update.data.{Substring, VersionPosition}
 import org.scalasteward.core.io.FileData
 import scala.util.matching.Regex

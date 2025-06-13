@@ -2,11 +2,11 @@ package org.scalasteward.core.update.artifact
 
 import cats.effect.unsafe.implicits.global
 import munit.FunSuite
-import org.scalasteward.core.TestSyntax._
+import org.scalasteward.core.TestSyntax.*
 import org.scalasteward.core.buildtool.sbt.data.{SbtVersion, ScalaVersion}
 import org.scalasteward.core.data.{GroupId, Resolver, Scope}
 import org.scalasteward.core.mock.MockContext.context.updateAlg
-import org.scalasteward.core.mock.MockState
+import org.scalasteward.core.mock.{MockEffOps, MockState}
 import org.scalasteward.core.repoconfig.RepoConfig
 import org.scalasteward.core.update.UpdateAlg
 import org.scalasteward.core.util.Nel
@@ -151,7 +151,7 @@ class ArtifactMigrationsFinderTest extends FunSuite {
   test("migrateDependency: sbt-dynver with migration") {
     val dependency = ("com.dwijnand".g % "sbt-dynver".a % "4.1.1")
       .copy(sbtVersion = Some(SbtVersion("1.0")), scalaVersion = Some(ScalaVersion("2.12")))
-    val expected = (dependency %> Nel.of("5.0.1")).single
+    val expected = (dependency %> Nel.of("5.1.0")).single
       .copy(newerGroupId = Some("com.github.sbt".g), newerArtifactId = Some("sbt-dynver"))
     val obtained = updateAlg
       .findUpdates(

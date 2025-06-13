@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 package org.scalasteward.core.forge.github
 
 import cats.effect.Concurrent
-import cats.syntax.all._
+import cats.syntax.all.*
 import org.http4s.{Header, Uri}
 import org.scalasteward.core.util.HttpJsonClient
-import org.typelevel.ci._
+import org.typelevel.ci.*
 
 class GitHubAppApiAlg[F[_]](
     gitHubApiHost: Uri
@@ -29,10 +29,10 @@ class GitHubAppApiAlg[F[_]](
     F: Concurrent[F]
 ) {
 
-  private[this] val acceptHeader =
+  private val acceptHeader =
     Header.Raw(ci"Accept", "application/vnd.github.v3+json")
 
-  private[this] def addHeaders(jwt: String): client.ModReq =
+  private def addHeaders(jwt: String): client.ModReq =
     req =>
       F.point(
         req.putHeaders(

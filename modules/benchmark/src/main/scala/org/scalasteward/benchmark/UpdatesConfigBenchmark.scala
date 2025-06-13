@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package org.scalasteward.benchmark
 
 import java.util.concurrent.TimeUnit
 import org.openjdk.jmh.annotations.{Benchmark, BenchmarkMode, Mode, OutputTimeUnit}
-import org.scalasteward.core.data._
+import org.scalasteward.core.data.*
 import org.scalasteward.core.repoconfig.{UpdatePattern, UpdatesConfig, VersionPattern}
 import org.scalasteward.core.util.Nel
 
@@ -36,9 +36,9 @@ class UpdatesConfigBenchmark {
     val update = Update.ForArtifactId(dependency, newerVersions)
 
     UpdatesConfig().keep(update)
-    UpdatesConfig(allow = List(UpdatePattern(groupId, None, None))).keep(update)
+    UpdatesConfig(allow = Some(List(UpdatePattern(groupId, None, None)))).keep(update)
     UpdatesConfig(allow =
-      List(UpdatePattern(groupId, None, Some(VersionPattern(prefix = Some("6.0")))))
+      Some(List(UpdatePattern(groupId, None, Some(VersionPattern(prefix = Some("6.0"))))))
     ).keep(update)
   }
 }

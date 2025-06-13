@@ -5,12 +5,11 @@ The `[.]scala-steward.conf` configuration file can be located in the root of you
 If a configuration file exists in more than one location, only the first found file is taken into account.
 
 ```scala mdoc:passthrough
-import io.circe.refined._
-import io.circe.syntax._
-import org.scalasteward.core.repoconfig._
+import io.circe.refined.*
+import io.circe.syntax.*
+import org.scalasteward.core.repoconfig.*
 
-print("```properties")
-print(s"""
+val input = s"""
 # pullRequests.frequency allows to control how often or when Scala Steward
 # is allowed to create pull requests.
 #
@@ -90,6 +89,11 @@ pullRequests.includeMatchedLabels = "(.*semver.*)|(commit-count:n:.*)"
 # Defaults to no labels (no labels are added).
 pullRequests.customLabels = [ "dependencies", "scala" ]
 
+# pullRequests.draft will ensure that PRs are raised as 'draft' PRs if the forge supports it.
+# This is useful if you don't want immediate review requests going to all watchers of the repo.
+# Defaults to false (PRs are not raised in draft).
+pullRequests.draft = true
+
 # Only these dependencies which match the given patterns are updated.
 #
 # Each pattern must have `groupId`, and may have `artifactId` and `version`.
@@ -109,6 +113,19 @@ updates.pin  = [ { groupId = "com.example", artifactId="foo", version = "1.1." }
 # Each pattern must have `groupId`, and may have `artifactId` and `version`.
 # Defaults to empty `[]` which mean Scala Steward will not ignore dependencies.
 updates.ignore = [ { groupId = "org.acme", artifactId="foo", version = "1.0" } ]
+
+# The dependencies which match the given pattern are retracted. Their existing pull-request will be closed.
+#
+# Each entry must have a `reason`, a `doc` URL and a list of dependency patterns.
+updates.retracted = [
+  {
+    reason = "Ignore version 3.6.0 as it is abandoned due to broken compatibility",
+    doc = "https://contributors.scala-lang.org/t/broken-scala-3-6-0-release/6792",
+    artifacts = [
+      { groupId = "org.scala-lang", artifactId = "scala3-compiler", version = { exact = "3.6.0" } }
+    ]
+  }
+]
 
 # The dependencies which match the given patterns are allowed to be updated to pre-release from stable.
 # This also implies, that it will be allowed for snapshot versions to be updated to snapshots of different series.
@@ -132,7 +149,7 @@ updates.fileExtensions = [".scala", ".sbt", ".sbt.shared", ".sc", ".yml", ".md",
 # you don't change it yourself.
 # If "never", Scala Steward will never update the PR
 # Default: ${PullRequestUpdateStrategy.default.asJson.noSpaces}
-updatePullRequests = "always" | "on-conflicts" | "never"
+updatePullRequests = "always"
 
 # If set, Scala Steward will use this message template for the commit messages and PR titles.
 # Supported variables: $${artifactName}, $${currentVersion}, $${nextVersion} and $${default}
@@ -173,11 +190,11 @@ dependencyOverrides = [
   },
   {
     dependency = { groupId = "com.example", artifactId = "foo" },
-    pullRequests = { frequency = "30 day" },
+    pullRequests = { frequency = "30 days" },
   },
   {
     dependency = { groupId = "com.example" },
-    pullRequests = { frequency = "14 day" },
+    pullRequests = { frequency = "14 days" },
   }
 ]
 
@@ -190,7 +207,16 @@ dependencyOverrides = [
 # to add assignees or request reviews. Consequently, it won't work for public @scala-steward instance on GitHub.
 assignees = [ "username1", "username2" ]
 reviewers = [ "username1", "username2" ]
-""")
+
+# If true, Scala Steward will sign off all commits (e.g. `git --signoff`).
+# Default: false
+signoffCommits = true
+"""
+
+DocChecker.verifyParsedEqualsEncoded[RepoConfig](input)
+
+print("```properties")
+print(input)
 println("```")
 ```
 

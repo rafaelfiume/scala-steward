@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,15 +18,15 @@ package org.scalasteward.core.buildtool.mill
 
 import better.files.File
 import cats.effect.MonadCancelThrow
-import cats.syntax.all._
-import org.scalasteward.core.buildtool.mill.MillAlg._
+import cats.syntax.all.*
+import org.scalasteward.core.buildtool.mill.MillAlg.*
 import org.scalasteward.core.buildtool.{BuildRoot, BuildToolAlg}
-import org.scalasteward.core.data._
+import org.scalasteward.core.data.*
 import org.scalasteward.core.io.{FileAlg, ProcessAlg, WorkspaceAlg}
 import org.scalasteward.core.util.Nel
 import org.typelevel.log4cats.Logger
 
-final class MillAlg[F[_]](defaultResolver: Resolver)(implicit
+final class MillAlg[F[_]](defaultResolvers: List[Resolver])(implicit
     fileAlg: FileAlg[F],
     override protected val logger: Logger[F],
     processAlg: ProcessAlg[F],
@@ -36,22 +36,30 @@ final class MillAlg[F[_]](defaultResolver: Resolver)(implicit
   override def name: String = "Mill"
 
   override def containsBuild(buildRoot: BuildRoot): F[Boolean] =
-    workspaceAlg
-      .buildRootDir(buildRoot)
-      .flatMap(buildRootDir => fileAlg.isRegularFile(buildRootDir / "build.sc"))
+    workspaceAlg.buildRootDir(buildRoot).flatMap(findBuildFile).map(_.nonEmpty)
 
-  private def runMill(buildRootDir: File) = {
-    val command = Nel("mill", List("-i", "--import", cliPluginCoordinate, "show", extractDeps))
-    processAlg.execSandboxed(command, buildRootDir)
-  }
-  private def runMillUnder011(buildRootDir: File, millBuildVersion: Option[Version]) = {
-    val predef = buildRootDir / "scala-steward.sc"
-    val predefContent = content(millBuildVersion)
-    val command = Nel("mill", List("-i", "-p", predef.toString, "show", extractDeps))
-    fileAlg.createTemporarily(predef, predefContent).surround {
-      processAlg.execSandboxed(command, buildRootDir)
+  private def findBuildFile(buildRootDir: File): F[Option[File]] =
+    List("build.sc", "build.mill", "build.mill.scala")
+      .map(buildRootDir / _)
+      .findM(fileAlg.isRegularFile)
+
+  private def runMill(buildRootDir: File, millBuildVersion: Option[Version]): F[List[String]] =
+    millBuildVersion match {
+      case Some(v) if v >= Version("0.11") =>
+        val noTicker =
+          if (v >= Version("0.12")) List("--ticker", "false") else List("--disable-ticker")
+        val options =
+          "--no-server" :: noTicker ++ List("--import", cliPluginCoordinate, "show", extractDeps)
+        val command = Nel("mill", options)
+        processAlg.execSandboxed(command, buildRootDir)
+      case _ =>
+        val predef = buildRootDir / "scala-steward.sc"
+        val predefContent = content(millBuildVersion)
+        val command = Nel("mill", List("-i", "-p", predef.toString, "show", extractDeps))
+        fileAlg.createTemporarily(predef, predefContent).surround {
+          processAlg.execSandboxed(command, buildRootDir)
+        }
     }
-  }
 
   override def getDependencies(buildRoot: BuildRoot): F[List[Scope.Dependencies]] =
     for {
@@ -59,7 +67,7 @@ final class MillAlg[F[_]](defaultResolver: Resolver)(implicit
       millBuildVersion <- getMillVersion(buildRootDir)
       dependencies <- getProjectDependencies(buildRootDir, millBuildVersion)
       millBuildDeps = millBuildVersion.toSeq.map(version =>
-        Scope(List(millMainArtifact(version)), List(defaultResolver))
+        Scope(List(millMainArtifact(version)), defaultResolvers)
       )
       millPluginDeps <- millBuildVersion match {
         case None        => F.pure(Seq.empty[Scope[List[Dependency]]])
@@ -72,9 +80,7 @@ final class MillAlg[F[_]](defaultResolver: Resolver)(implicit
       millBuildVersion: Option[Version]
   ): F[List[Scope.Dependencies]] =
     for {
-      extracted <-
-        if (isMillVersionGreaterOrEqual011(millBuildVersion)) runMill(buildRootDir)
-        else runMillUnder011(buildRootDir, millBuildVersion)
+      extracted <- runMill(buildRootDir, millBuildVersion)
       parsed <- F.fromEither(
         parser.parseModules(extracted.dropWhile(!_.startsWith("{")).mkString("\n"))
       )
@@ -85,51 +91,38 @@ final class MillAlg[F[_]](defaultResolver: Resolver)(implicit
     Some("https://github.com/scala-steward-org/scala-steward/issues/2838")
 
   private def getMillVersion(buildRootDir: File): F[Option[Version]] =
-    for {
-      millVersionFileContent <- fileAlg.readFile(buildRootDir / millVersionName)
-      millVersionFileInConfigContent <- fileAlg.readFile(
-        buildRootDir / ".config" / millVersionNameInConfig
-      )
-      version = millVersionFileContent
-        .orElse(millVersionFileInConfigContent)
-        .flatMap(parser.parseMillVersion)
-    } yield version
+    List(
+      buildRootDir / s".$millVersionName",
+      buildRootDir / ".config" / millVersionName
+    ).collectFirstSomeM(fileAlg.readFile).map(_.flatMap(parser.parseMillVersion))
 
   private def getMillPluginDeps(
       millVersion: Version,
       buildRootDir: File
   ): F[Seq[Scope[List[Dependency]]]] =
     for {
-      buildContent <- fileAlg.readFile(buildRootDir / "build.sc")
+      buildFile <- findBuildFile(buildRootDir)
+      buildContent <- buildFile.flatTraverse(fileAlg.readFile)
       deps = buildContent.toList.map(content =>
-        Scope(parser.parseMillPluginDeps(content, millVersion), List(defaultResolver))
+        Scope(parser.parseMillPluginDeps(content, millVersion), defaultResolvers)
       )
     } yield deps
 }
 
 object MillAlg {
-  private[mill] def isMillVersionGreaterOrEqual011(millVersion: Option[Version]): Boolean =
-    millMinVersion(millVersion).flatMap(_.toIntOption).exists(_ >= 11)
-
-  private[mill] def millMinVersion(millVersion: Option[Version]): Option[String] =
-    millVersion.flatMap(_.value.trim.split("[.]", 3).take(2).lastOption)
-
   private[mill] val cliPluginCoordinate: String =
     s"ivy:${org.scalasteward.core.BuildInfo.organization}::${org.scalasteward.core.BuildInfo.millPluginArtifactName}::${org.scalasteward.core.BuildInfo.millPluginVersion}"
 
-  private[mill] def content(millVersion: Option[Version]) = {
-    def rawContent(millBinPlatform: String) =
-      s"""|import $$ivy.`${org.scalasteward.core.BuildInfo.organization}::${org.scalasteward.core.BuildInfo.millPluginArtifactName}_mill${millBinPlatform}:${org.scalasteward.core.BuildInfo.millPluginVersion}`
-          |""".stripMargin
-
-    millMinVersion(millVersion) match {
-      case None => rawContent("$MILL_BIN_PLATFORM")
-      // We support these platforms, but we can't take the $MILL_BIN_PLATFORM support for granted
-      case Some("6")             => rawContent("0.6")
-      case Some("7") | Some("8") => rawContent("0.7")
-      case Some("9")             => rawContent("0.9")
-      case _                     => rawContent("$MILL_BIN_PLATFORM")
+  private[mill] def content(millVersion: Option[Version]): String = {
+    // We support these platforms, but we can't take the $MILL_BIN_PLATFORM support for granted
+    val millBinPlatform = millVersion match {
+      case Some(v) if v >= Version("0.10") => "$MILL_BIN_PLATFORM"
+      case Some(v) if v >= Version("0.9")  => "0.9"
+      case Some(v) if v >= Version("0.7")  => "0.7"
+      case Some(v) if v >= Version("0.6")  => "0.6"
+      case _                               => "$MILL_BIN_PLATFORM"
     }
+    s"""import $$ivy.`${org.scalasteward.core.BuildInfo.organization}::${org.scalasteward.core.BuildInfo.millPluginArtifactName}_mill${millBinPlatform}:${org.scalasteward.core.BuildInfo.millPluginVersion}`"""
   }
 
   val extractDeps: String = "org.scalasteward.mill.plugin.StewardPlugin/extractDeps"
@@ -144,6 +137,5 @@ object MillAlg {
     update.groupId === millMainGroupId &&
       update.artifactIds.exists(_.name === millMainArtifactId.name)
 
-  val millVersionName = ".mill-version"
-  val millVersionNameInConfig = "mill-version"
+  val millVersionName = "mill-version"
 }

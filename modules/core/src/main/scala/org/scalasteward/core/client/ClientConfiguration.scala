@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,17 @@
 
 package org.scalasteward.core.client
 
-import cats.effect._
-import cats.syntax.all._
-import eu.timepit.refined.auto._
+import cats.effect.*
+import cats.syntax.all.*
 import eu.timepit.refined.types.numeric.PosInt
 import java.net.http.HttpClient
 import java.net.http.HttpClient.Builder
 import org.http4s.Response
-import org.http4s.client._
+import org.http4s.client.*
 import org.http4s.headers.`User-Agent`
 import org.http4s.jdkhttpclient.JdkHttpClient
-import org.typelevel.ci._
-import scala.concurrent.duration._
+import org.typelevel.ci.*
+import scala.concurrent.duration.*
 
 object ClientConfiguration {
   type BuilderMiddleware = Builder => Builder
@@ -51,6 +50,7 @@ object ClientConfiguration {
           val params = javax.net.ssl.SSLContext.getDefault().getDefaultSSLParameters()
           params.setProtocols(params.getProtocols().filter(_ != "TLSv1.3"))
           builder.sslParameters(params)
+          ()
         }
 
         builder.executor(exec)
@@ -69,7 +69,7 @@ object ClientConfiguration {
     *   max number times the HTTP request should be sent useful to avoid unexpected cloud provider
     *   costs
     */
-  def retryAfter[F[_]: Temporal](maxAttempts: PosInt = 5): Middleware[F] = { client =>
+  def retryAfter[F[_]: Temporal](maxAttempts: PosInt): Middleware[F] = { client =>
     Client[F] { req =>
       def run(attempt: Int = 1): Resource[F, Response[F]] = client
         .run(req.putHeaders("X-Attempt" -> attempt.toString))

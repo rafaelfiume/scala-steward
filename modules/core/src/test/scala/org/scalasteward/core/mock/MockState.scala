@@ -2,12 +2,11 @@ package org.scalasteward.core.mock
 
 import better.files.File
 import cats.effect.{IO, Ref}
-import cats.syntax.all._
+import cats.syntax.all.*
 import org.http4s.{HttpApp, Uri}
 import org.scalasteward.core.git.FileGitAlg
 import org.scalasteward.core.git.FileGitAlgTest.ioAuxGitAlg
 import org.scalasteward.core.io.FileAlgTest.ioFileAlg
-import org.scalasteward.core.mock.MockConfig.mockRoot
 import org.scalasteward.core.mock.MockState.TraceEntry
 import org.scalasteward.core.mock.MockState.TraceEntry.{Cmd, Log}
 
@@ -30,15 +29,15 @@ final case class MockState(
   def initGitRepo(repoDir: File, files: (File, String)*): IO[MockState] =
     for {
       _ <- ioAuxGitAlg.createRepo(repoDir)
-      state <- addFiles(files: _*)
-      _ <- ioAuxGitAlg.addFiles(repoDir, files.map { case (file, _) => file }: _*)
+      state <- addFiles(files*)
+      _ <- ioAuxGitAlg.addFiles(repoDir, files.map { case (file, _) => file }*)
     } yield state
 
   def rmFile(file: File): IO[MockState] =
     ioFileAlg.deleteForce(file).as(copy(files = files - file))
 
   def exec(cmd: String*): MockState =
-    appendTraceEntry(Cmd(cmd: _*))
+    appendTraceEntry(Cmd(cmd*))
 
   def log(maybeThrowable: Option[Throwable], msg: String): MockState =
     appendTraceEntry(Log((maybeThrowable, msg)))
@@ -85,14 +84,16 @@ object MockState {
 
       def git(repoDir: File, args: String*): Cmd = {
         val env =
-          List(s"GIT_ASKPASS=$mockRoot/askpass.sh", "VAR1=val1", "VAR2=val2", repoDir.toString)
+          List("VAR1=val1", "VAR2=val2", repoDir.toString)
         Cmd(env ++ FileGitAlg.gitCmd.toList ++ args)
       }
 
       def gitCommit(repoDir: File, messages: String*): Cmd = {
         val args =
-          "commit" :: "--all" :: "--no-gpg-sign" :: messages.toList.flatMap(m => List("-m", m))
-        git(repoDir, args: _*)
+          "commit" :: "--all" :: "--no-gpg-sign" :: "--no-signoff" :: messages.toList.flatMap(m =>
+            List("-m", m)
+          )
+        git(repoDir, args*)
       }
 
       def gitGrep(repoDir: File, string: String): Cmd =

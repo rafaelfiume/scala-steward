@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@
 package org.scalasteward.core.util
 
 import cats.effect.Concurrent
-import cats.syntax.all._
+import cats.syntax.all.*
 import fs2.Stream
 import io.circe.{Decoder, Encoder}
+import org.http4s.*
 import org.http4s.Method.{GET, PATCH, POST, PUT}
 import org.http4s.Status.Successful
-import org.http4s._
 import org.http4s.circe.{jsonEncoderOf, jsonOf}
 import org.http4s.client.Client
 import org.http4s.headers.{Accept, Link, MediaRangeAndQValue}
@@ -89,7 +89,7 @@ final class HttpJsonClient[F[_]](implicit
       client.run(r).use {
         case Successful(resp) =>
           d.decode(resp, strict = false).value.flatMap {
-            case Right(a) => F.pure((a, resp.headers))
+            case Right(a)      => F.pure((a, resp.headers))
             case Left(failure) =>
               handleFailure(resp)(DecodeFailureWithContext(uri, method, _, Some(failure)))
           }

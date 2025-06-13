@@ -1,12 +1,12 @@
 package org.scalasteward.core.coursier
 
 import munit.CatsEffectSuite
-import org.http4s.syntax.literals._
-import org.scalasteward.core.TestSyntax._
+import org.http4s.syntax.literals.*
+import org.scalasteward.core.TestSyntax.*
 import org.scalasteward.core.buildtool.sbt.data.{SbtVersion, ScalaVersion}
 import org.scalasteward.core.data.Resolver
 import org.scalasteward.core.mock.MockContext.context.coursierAlg
-import org.scalasteward.core.mock.MockState
+import org.scalasteward.core.mock.{MockEffOps, MockState}
 
 class CoursierAlgTest extends CatsEffectSuite {
   private val resolvers = List(Resolver.mavenCentral)
@@ -103,7 +103,7 @@ class CoursierAlgTest extends CatsEffectSuite {
   test("getMetadata: resolver with headers") {
     val dep = "org.typelevel".g % ("cats-effect", "cats-effect_2.12").a % "1.0.0"
     val resolvers =
-      List(Resolver.mavenCentral.copy(headers = List(Resolver.Header("X-Foo", "bar"))))
+      List(Resolver.mavenCentral.copy(headers = Some(List(Resolver.Header("X-Foo", "bar")))))
     val obtained =
       coursierAlg.getMetadata(dep, resolvers).runA(MockState.empty).map(_.repoUrl.isDefined)
     assertIOBoolean(obtained)

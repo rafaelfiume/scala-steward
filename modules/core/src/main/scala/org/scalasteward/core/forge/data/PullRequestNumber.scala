@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,16 @@
 
 package org.scalasteward.core.forge.data
 
-import io.circe.Codec
-import io.circe.generic.extras.semiauto.deriveUnwrappedCodec
+import io.circe.{Decoder, Encoder}
 
 final case class PullRequestNumber(value: Int) {
   override def toString: String = value.toString
 }
 
 object PullRequestNumber {
-  implicit val pullRequestNumberCodec: Codec[PullRequestNumber] =
-    deriveUnwrappedCodec
+  implicit val pullRequestNumberDecoder: Decoder[PullRequestNumber] =
+    Decoder[Int].map(PullRequestNumber.apply)
+
+  implicit val pullRequestNumberEncoder: Encoder[PullRequestNumber] =
+    Encoder[Int].contramap(_.value)
 }

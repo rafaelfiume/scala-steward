@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 package org.scalasteward.core.repocache
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{MonadThrow, Parallel}
 import org.scalasteward.core.application.Config
 import org.scalasteward.core.buildtool.BuildToolDispatcher
@@ -40,19 +40,17 @@ final class RepoCacheAlg[F[_]](config: Config)(implicit
     F: MonadThrow[F]
 ) {
   def checkCache(repo: Repo): F[(RepoData, RepoOut)] =
-    logger.info(s"Check cache of ${repo.show}") >>
-      refreshErrorAlg.skipIfFailedRecently(repo) {
-        (
-          forgeApiAlg.createForkOrGetRepoWithBranch(repo, config.forgeCfg.doNotFork),
-          repoCacheRepository.findCache(repo)
-        ).parTupled.flatMap { case ((repoOut, branchOut), maybeCache) =>
-          val latestSha1 = branchOut.commit.sha
-          maybeCache
-            .filter(_.sha1 === latestSha1)
-            .fold(cloneAndRefreshCache(repo, repoOut))(supplementCache(repo, _).pure[F])
-            .map(data => (data, repoOut))
-        }
-      }
+    for {
+      _ <- logger.info(s"Check cache of ${repo.show}")
+      _ <- refreshErrorAlg.throwIfFailedRecently(repo)
+      getRepoAndBranch = forgeApiAlg.createForkOrGetRepoWithBranch(repo, config.forgeCfg.doNotFork)
+      tuple <- (getRepoAndBranch, repoCacheRepository.findCache(repo)).parTupled
+      ((repoOut, branchOut), maybeCache) = tuple
+      latestSha1 = branchOut.commit.sha
+      data <- maybeCache
+        .filter(_.sha1 === latestSha1)
+        .fold(cloneAndRefreshCache(repo, repoOut))(supplementCache(repo, _).pure[F])
+    } yield (data, repoOut)
 
   private def supplementCache(repo: Repo, cache: RepoCache): RepoData =
     RepoData(repo, cache, repoConfigAlg.mergeWithGlobal(cache.maybeRepoConfig))

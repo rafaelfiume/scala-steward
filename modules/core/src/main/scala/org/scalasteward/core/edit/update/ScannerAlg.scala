@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 package org.scalasteward.core.edit.update
 
 import cats.effect.Concurrent
-import cats.syntax.all._
+import cats.syntax.all.*
 import fs2.Stream
 import org.scalasteward.core.data.{Dependency, Repo, Version}
 import org.scalasteward.core.edit.update.data.{ModulePosition, VersionPosition}
@@ -66,7 +66,7 @@ final class ScannerAlg[F[_]](implicit
     Stream.eval(workspaceAlg.repoDir(repo)).flatMap { repoDir =>
       Stream
         .evalSeq(gitAlg.findFilesContaining(repo, string))
-        .filter(path => config.updates.fileExtensionsOrDefault.exists(path.endsWith))
+        .filter(path => config.updatesOrDefault.fileExtensionsOrDefault.exists(path.endsWith))
         .evalMapFilter(path => fileAlg.readFile(repoDir / path).map(_.map(FileData(path, _))))
     }
 }

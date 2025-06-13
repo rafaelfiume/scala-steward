@@ -1,11 +1,11 @@
 package org.scalasteward.core.util
 
 import munit.CatsEffectSuite
-import org.scalasteward.core.TestSyntax._
+import org.scalasteward.core.TestSyntax.*
 import org.scalasteward.core.data.Update
-import org.scalasteward.core.mock.MockContext.context._
+import org.scalasteward.core.mock.MockContext.context.*
 import org.scalasteward.core.mock.MockState.TraceEntry.Log
-import org.scalasteward.core.mock.{MockEff, MockState}
+import org.scalasteward.core.mock.{MockEff, MockEffOps, MockState}
 import org.scalasteward.core.util.logger.{showUpdates, LoggerOps}
 
 class loggerTest extends CatsEffectSuite {

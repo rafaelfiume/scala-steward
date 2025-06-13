@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 package org.scalasteward.core.repocache
 
 import cats.MonadThrow
-import cats.syntax.all._
+import cats.syntax.all.*
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import org.scalasteward.core.data.Repo
@@ -25,7 +25,7 @@ import org.scalasteward.core.persistence.KeyValueStore
 import org.scalasteward.core.repocache.RefreshErrorAlg.Entry
 import org.scalasteward.core.util.dateTime.showDuration
 import org.scalasteward.core.util.{DateTimeAlg, Timestamp}
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.control.NoStackTrace
 
 final class RefreshErrorAlg[F[_]](
@@ -35,12 +35,12 @@ final class RefreshErrorAlg[F[_]](
     dateTimeAlg: DateTimeAlg[F],
     F: MonadThrow[F]
 ) {
-  def skipIfFailedRecently[A](repo: Repo)(fa: F[A]): F[A] =
+  def throwIfFailedRecently(repo: Repo): F[Unit] =
     failedRecently(repo).flatMap {
-      case None => fa
+      case None     => F.unit
       case Some(fd) =>
         val msg = s"Skipping due to previous error for ${showDuration(fd)}"
-        F.raiseError[A](new Throwable(msg) with NoStackTrace)
+        F.raiseError(new Throwable(msg) with NoStackTrace)
     }
 
   def persistError[A](repo: Repo)(fa: F[A]): F[A] =
@@ -52,7 +52,7 @@ final class RefreshErrorAlg[F[_]](
 
   private def failedRecently(repo: Repo): F[Option[FiniteDuration]] =
     kvStore.get(repo).flatMap {
-      case None => F.pure(None)
+      case None        => F.pure(None)
       case Some(entry) =>
         dateTimeAlg.currentTimestamp.flatMap { now =>
           entry.expiresIn(now, backoffPeriod) match {

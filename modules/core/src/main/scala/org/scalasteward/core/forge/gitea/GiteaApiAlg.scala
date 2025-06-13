@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,18 @@
 
 package org.scalasteward.core.forge.gitea
 
-import cats._
-import cats.implicits._
-import io.circe._
+import cats.*
+import cats.implicits.*
+import io.circe.*
 import io.circe.generic.semiauto.{deriveCodec, deriveEncoder}
 import org.http4s.{Request, Uri}
 import org.scalasteward.core.application.Config.ForgeCfg
 import org.scalasteward.core.data.Repo
 import org.scalasteward.core.forge.ForgeApiAlg
-import org.scalasteward.core.forge.data._
-import org.scalasteward.core.forge.gitea.GiteaApiAlg._
+import org.scalasteward.core.forge.data.*
+import org.scalasteward.core.forge.gitea.GiteaApiAlg.*
 import org.scalasteward.core.git.{Branch, Sha1}
-import org.scalasteward.core.util.uri._
+import org.scalasteward.core.util.uri.*
 import org.scalasteward.core.util.{intellijThisImportIsUsed, HttpJsonClient}
 import org.typelevel.log4cats.Logger
 
@@ -235,7 +235,7 @@ final class GiteaApiAlg[F[_]: HttpJsonClient](
     def goLoop(page: Int, accu: Vector[PullRequestOut]): F[Vector[PullRequestOut]] =
       go(page).flatMap {
         case xs if xs.isEmpty => accu.pure[F]
-        case xs =>
+        case xs               =>
           val xs0 =
             xs.filter(x => x.head.label == head && x.base.label == base.name)
               .map(pullRequestOut)

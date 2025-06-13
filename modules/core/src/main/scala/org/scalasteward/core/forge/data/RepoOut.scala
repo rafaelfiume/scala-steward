@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@
 package org.scalasteward.core.forge.data
 
 import cats.ApplicativeThrow
-import io.circe.Decoder
-import io.circe.generic.semiauto._
+import io.circe.Codec
+import io.circe.generic.semiauto.*
 import org.http4s.Uri
 import org.scalasteward.core.data.Repo
 import org.scalasteward.core.git.Branch
 import org.scalasteward.core.util.intellijThisImportIsUsed
-import org.scalasteward.core.util.uri.uriDecoder
+import org.scalasteward.core.util.uri.{uriDecoder, uriEncoder}
 
 final case class RepoOut(
     name: String,
@@ -45,8 +45,8 @@ final case class RepoOut(
 }
 
 object RepoOut {
-  implicit val repoOutDecoder: Decoder[RepoOut] =
-    deriveDecoder
+  implicit val repoOutDecoder: Codec[RepoOut] = deriveCodec
 
   intellijThisImportIsUsed(uriDecoder)
+  intellijThisImportIsUsed(uriEncoder)
 }

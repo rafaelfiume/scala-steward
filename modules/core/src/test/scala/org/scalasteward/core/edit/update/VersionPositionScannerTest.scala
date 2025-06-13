@@ -1,9 +1,9 @@
 package org.scalasteward.core.edit.update
 
 import munit.FunSuite
-import org.scalasteward.core.TestSyntax._
+import org.scalasteward.core.TestSyntax.*
 import org.scalasteward.core.edit.update.data.Substring
-import org.scalasteward.core.edit.update.data.VersionPosition._
+import org.scalasteward.core.edit.update.data.VersionPosition.*
 import org.scalasteward.core.io.FileData
 
 class VersionPositionScannerTest extends FunSuite {
@@ -67,9 +67,9 @@ class VersionPositionScannerTest extends FunSuite {
     val d = "org.scala-js".g % "sbt-scalajs".a % "0.6.23"
     val fd = FileData(
       "plugins.sbt",
-      s"""addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.2")
+      s"""addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.4")
          |addSbtPlugin("${d.groupId}" % "${d.artifactId.name}" % "${d.version}")
-         |addSbtPlugin("org.scoverage" % "sbt-scoverage" % "2.1.1")""".stripMargin
+         |addSbtPlugin("org.scoverage" % "sbt-scoverage" % "2.2.0")""".stripMargin
     )
     val obtained = VersionPositionScanner.findPositions(d.version, fd)
     val expected = List(

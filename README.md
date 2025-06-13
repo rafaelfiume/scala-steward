@@ -32,7 +32,7 @@ look like, here are the ones it has created so far:
 * [Merged pull requests]( https://github.com/search?q=author%3Ascala-steward+is%3Amerged+sort%3Aupdated-desc&type=pullrequests)
   ([compact](             https://github.com/pulls?q=author%3Ascala-steward+is%3Amerged+sort%3Aupdated-desc))
 
-You can also watch what it is currently doing [here](https://gitstalk.netlify.com/scala-steward).
+You can also watch what it is currently doing [here](https://gitstalk.netlify.app/scala-steward).
 
 ## Wanna have a badge?
 
@@ -59,6 +59,7 @@ The [`docs`](docs) directory contains documentation about these topics:
 
 Thanks goes to these wonderful people for contributing to Scala Steward:
 
+* [Achilleas Naoumidis](https://github.com/achinaou)
 * [Alejandro Hernández](https://github.com/alejandrohdezma)
 * [Alessandro Buggin](https://github.com/abuggin)
 * [Alex](https://github.com/jhnsmth)
@@ -111,6 +112,7 @@ Thanks goes to these wonderful people for contributing to Scala Steward:
 * [Harm Weites](https://github.com/harmw)
 * [Ikenna Darlington Ogbajie](https://github.com/idarlington)
 * [Ingar Abrahamsen](https://github.com/ingarabr)
+* [Ioanna Kokkini](https://github.com/ioannakok)
 * [Jakub Kozłowski](https://github.com/kubukoz)
 * [Jamie Thompson](https://github.com/bishabosha)
 * [Javier Arrieta](https://github.com/javierarrieta)
@@ -126,6 +128,7 @@ Thanks goes to these wonderful people for contributing to Scala Steward:
 * [Kilic Ali-Firat](https://github.com/alifirat)
 * [LaurenceWarne](https://github.com/LaurenceWarne)
 * [Leonhard Riedißer](https://github.com/L7R7)
+* [Luigi](https://github.com/GreyPlane)
 * [Maksym Ochenashko](https://github.com/iRevive)
 * [Manuel Cueto](https://github.com/manuelcueto)
 * [Marco Zühlke](https://github.com/mzuehlke)
@@ -134,12 +137,16 @@ Thanks goes to these wonderful people for contributing to Scala Steward:
 * [MaT1g3R](https://github.com/MaT1g3R)
 * [Mat Mannion](https://github.com/matmannion)
 * [Matthias Kurz](https://github.com/mkurz)
+* [Max Smirnov](https://github.com/Masynchin)
 * [Maxence Cramet](https://github.com/max5599)
+* [Michael Mior](https://github.com/michaelmior)
 * [Michael Wizner](https://github.com/mwz)
 * [Michel Daviot](https://github.com/tyrcho)
 * [miguelpuyol](https://github.com/miguelpuyol)
 * [nafg](https://github.com/nafg)
 * [Nabil Abdel-Hafeez](https://github.com/987Nabil)
+* [Nicola Di Pol](https://github.com/horothesun)
+* [Olivier Deckers](https://github.com/olivierdeckers)
 * [Ondra Pelech](https://github.com/sideeffffect)
 * [Pavel Shapkin](https://github.com/psttf)
 * [Philippus Baalman](https://github.com/Philippus)
@@ -188,15 +195,19 @@ Consider creating PR to add your company to the list and join the community.
 * [Colisweb](https://www.colisweb.com/)
 * [commercetools](https://docs.commercetools.com/)
 * [Dataswift.io](https://dataswift.io/)
+* [Disney Streaming](https://disneystreaming.com)
+* [Dixa](https://dixa.com)
 * [Enliven Systems](https://enliven.systems)
 * [Evolution Gaming](https://www.evolutiongaming.com/)
 * [Firstbird](https://firstbird.com)
 * [Hellosoda](https://hellosoda.com/)
 * [HolidayCheck](https://github.com/holidaycheck)
 * [iAdvize](https://www.iadvize.com/en/)
+* [LambdaWorks](https://www.lambdaworks.io/)
 * [LeadIQ](https://leadiq.com/)
 * [Lichess](https://lichess.org)
 * [Lightbend](https://www.lightbend.com/)
+* [M-net Telekommunikations GmbH](https://www.m-net.de/)
 * [Mobimeo](https://www.mobimeo.com/)
 * [Ocado Technology](https://ocadotechnology.com/)
 * [Play Framework](https://www.playframework.com/)
@@ -205,6 +216,7 @@ Consider creating PR to add your company to the list and join the community.
 * [Rewards Network](https://www.rewardsnetwork.com/)
 * [Rivero](https://rivero.tech/)
 * [Septeni Original](https://www.septeni-original.co.jp)
+* [SiriusXM](https://www.siriusxm.com/)
 * [Snowplow Analytics](https://snowplowanalytics.com/)
 * [SoftwareMill](https://softwaremill.com)
 * [Spotify](https://www.spotify.com)

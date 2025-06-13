@@ -1,8 +1,7 @@
-import scala.util.Properties
-import scala.reflect.io.Path
-import com.typesafe.sbt.packager.docker._
-import sbtcrossproject.{CrossProject, CrossType, Platform}
+import com.typesafe.sbt.packager.docker.*
 import org.typelevel.sbt.gha.JavaSpec.Distribution.Temurin
+import org.typelevel.scalacoptions.ScalacOptions
+import sbtcrossproject.{CrossProject, CrossType, Platform}
 
 /// variables
 
@@ -21,11 +20,12 @@ val moduleCrossPlatformMatrix: Map[String, List[Platform]] = Map(
   "dummy" -> List(JVMPlatform)
 )
 
-val Scala213 = "2.13.14"
+val Scala213 = "2.13.16"
+val Scala3 = "3.3.6"
 
 /// sbt-typelevel configuration
 
-ThisBuild / crossScalaVersions := Seq(Scala213)
+ThisBuild / crossScalaVersions := Seq(Scala213, Scala3)
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches := Seq(
   RefPredicate.Equals(Ref.Branch(mainBranch)),
@@ -50,15 +50,18 @@ ThisBuild / githubWorkflowPublish := Seq(
     name = Some("Publish Docker image")
   )
 )
-ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec(Temurin, "17"), JavaSpec(Temurin, "11"))
+ThisBuild / githubWorkflowJavaVersions := Seq("21", "17", "11").map(JavaSpec(Temurin, _))
 ThisBuild / githubWorkflowBuild :=
   Seq(
-    WorkflowStep
-      .Use(UseRef.Public("coursier", "setup-action", "v1"), params = Map("apps" -> "scalafmt")),
+    WorkflowStep.Use(
+      UseRef.Public("coursier", "setup-action", "v1"),
+      params = Map("apps" -> "scalafmt:3.8.3")
+    ),
     WorkflowStep.Sbt(List("validate"), name = Some("Build project")),
     WorkflowStep.Use(
-      UseRef.Public("codecov", "codecov-action", "v3"),
-      name = Some("Codecov")
+      ref = UseRef.Public("codecov", "codecov-action", "v4"),
+      name = Some("Codecov"),
+      env = Map("CODECOV_TOKEN" -> "${{ secrets.CODECOV_TOKEN }}")
     )
   )
 
@@ -106,6 +109,7 @@ lazy val benchmark = myCrossProject("benchmark")
   .enablePlugins(JmhPlugin)
   .settings(noPublishSettings)
   .settings(
+    crossScalaVersions := Seq(Scala213, Scala3),
     scalacOptions -= "-Wnonunit-statement",
     coverageEnabled := false,
     unusedCompileDependencies := Set.empty
@@ -115,6 +119,7 @@ lazy val core = myCrossProject("core")
   .enablePlugins(BuildInfoPlugin, JavaAppPackaging, DockerPlugin)
   .settings(dockerSettings)
   .settings(
+    crossScalaVersions := Seq(Scala213, Scala3),
     libraryDependencies ++= Seq(
       Dependencies.bcprovJdk15to18,
       Dependencies.betterFiles,
@@ -123,12 +128,11 @@ lazy val core = myCrossProject("core")
       Dependencies.catsParse,
       Dependencies.circeConfig,
       Dependencies.circeGeneric,
-      Dependencies.circeGenericExtras,
       Dependencies.circeParser,
       Dependencies.circeRefined,
       Dependencies.commonsIo,
-      Dependencies.coursierCore,
-      Dependencies.coursierSbtMaven,
+      Dependencies.coursierCore.cross(CrossVersion.for3Use2_13),
+      Dependencies.coursierSbtMaven.cross(CrossVersion.for3Use2_13),
       Dependencies.cron4sCore,
       Dependencies.decline,
       Dependencies.fs2Core,
@@ -144,6 +148,7 @@ lazy val core = myCrossProject("core")
       Dependencies.monocleCore,
       Dependencies.refined,
       Dependencies.scalacacheCaffeine,
+      Dependencies.tomlj,
       Dependencies.logbackClassic % Runtime,
       Dependencies.catsLaws % Test,
       Dependencies.circeLiteral % Test,
@@ -156,6 +161,9 @@ lazy val core = myCrossProject("core")
       Dependencies.refinedScalacheck % Test,
       Dependencies.scalacheck % Test
     ),
+    // Workaround for https://github.com/cb372/sbt-explicit-dependencies/issues/117
+    unusedCompileDependenciesFilter -=
+      moduleFilter(organization = Dependencies.coursierCore.organization),
     assembly / test := {},
     assembly / assemblyMergeStrategy := {
       case PathList("META-INF", "versions", "9", "module-info.class") =>
@@ -192,24 +200,23 @@ lazy val core = myCrossProject("core")
       BuildInfoKey("millPluginVersion" -> Dependencies.scalaStewardMillPlugin.revision)
     ),
     buildInfoPackage := moduleRootPkg.value,
-    initialCommands += s"""
-      import ${moduleRootPkg.value}._
-      import ${moduleRootPkg.value}.data._
-      import ${moduleRootPkg.value}.util._
-      import better.files.File
-      import cats.effect.IO
-      import org.http4s.client.Client
-      import org.typelevel.log4cats.Logger
-      import org.typelevel.log4cats.slf4j.Slf4jLogger
-
-      implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
-    """,
+    initialCommands +=
+      s"""import ${moduleRootPkg.value}._
+         |import ${moduleRootPkg.value}.data._
+         |import ${moduleRootPkg.value}.util._
+         |import better.files.File
+         |import cats.effect.IO
+         |import org.http4s.client.Client
+         |import org.typelevel.log4cats.Logger
+         |import org.typelevel.log4cats.slf4j.Slf4jLogger
+         |implicit val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
+         |""".stripMargin,
     // Inspired by https://stackoverflow.com/a/41978937/460387
     Test / sourceGenerators += Def.task {
       val file = (Test / sourceManaged).value / "InitialCommandsTest.scala"
       val content =
         s"""object InitialCommandsTest {
-           |  ${initialCommands.value}
+           |  ${initialCommands.value.linesIterator.mkString("\n  ")}
            |  // prevent warnings
            |  intellijThisImportIsUsed(Client); intellijThisImportIsUsed(File);
            |  intellijThisImportIsUsed(Nel); intellijThisImportIsUsed(Repo);
@@ -243,6 +250,9 @@ lazy val docs = myCrossProject("docs")
   .enablePlugins(MdocPlugin)
   .settings(noPublishSettings)
   .settings(
+    libraryDependencies ++= Seq(Dependencies.munitDiff),
+    scalacOptions += "-Ytasty-reader",
+    tpolecatExcludeOptions := Set(ScalacOptions.fatalWarnings),
     mdocIn := baseDirectory.value / ".." / "mdoc",
     mdocOut := (LocalRootProject / baseDirectory).value / "docs",
     mdocVariables := Map(
@@ -277,6 +287,7 @@ lazy val dummy = myCrossProject("dummy")
   .settings(noPublishSettings)
   .settings(
     libraryDependencies ++= Seq(
+      Dependencies.millMain,
       Dependencies.scalaStewardMillPlugin
     )
   )
@@ -302,6 +313,14 @@ lazy val commonSettings = Def.settings(
 
 lazy val compileSettings = Def.settings(
   scalaVersion := Scala213,
+  scalacOptions ++= {
+    scalaBinaryVersion.value match {
+      case "2.13" =>
+        Seq("-Xsource:3-cross")
+      case _ =>
+        Nil
+    }
+  },
   doctestTestFramework := DoctestTestFramework.Munit
 )
 
@@ -312,7 +331,7 @@ lazy val metadataSettings = Def.settings(
   startYear := Some(2018),
   licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
   scmInfo := Some(ScmInfo(homepage.value.get, s"scm:git:$gitHubUrl.git")),
-  headerLicense := Some(HeaderLicense.ALv2("2018-2023", "Scala Steward contributors")),
+  headerLicense := Some(HeaderLicense.ALv2("2018-2025", "Scala Steward contributors")),
   developers := List(
     Developer(
       id = "alejandrohdezma",
@@ -354,14 +373,10 @@ lazy val dockerSettings = Def.settings(
       s"tar -xf $sbtTgz",
       s"rm -f $sbtTgz"
     ).mkString(" && ")
-    val millVer = Dependencies.millScriptVersion
+    val millVer = Dependencies.millMain.revision
     val millBin = s"$binDir/mill"
-    val releasePageVersion = millVer.split("-") match {
-      case Array(v, m, _*) if m.startsWith("M") => s"${v}-${m}"
-      case Array(v, _*)                         => v
-    }
     val installMill = Seq(
-      s"$curl $millBin https://github.com/lihaoyi/mill/releases/download/${releasePageVersion}/$millVer",
+      s"$curl $millBin https://repo1.maven.org/maven2/com/lihaoyi/mill-dist/$millVer/mill-dist-$millVer-mill.sh",
       s"chmod +x $millBin"
     ).mkString(" && ")
     val csBin = s"$binDir/cs"
@@ -380,16 +395,16 @@ lazy val dockerSettings = Def.settings(
       Cmd("USER", "root"),
       Cmd(
         "RUN",
-        "apk --no-cache add bash git gpg ca-certificates curl maven openssh nodejs npm ncurses"
+        "apk --no-cache add bash git gpg ca-certificates curl maven openssh nodejs npm ncurses sqlite sqlite-dev"
       ),
       Cmd("RUN", installSbt),
       Cmd("RUN", installMill),
       Cmd("RUN", installCoursier),
       Cmd("RUN", installScalaCli),
       Cmd("RUN", s"$csBin install --install-dir $binDir scalafix scalafmt"),
-      Cmd("RUN", "npm install --global yarn"),
       // Ensure binaries are in PATH
       Cmd("RUN", "echo $PATH"),
+      Cmd("RUN", "npm install --global yarn"),
       Cmd("RUN", "which cs mill mvn node npm sbt scala-cli scalafix scalafmt yarn")
     )
   },
@@ -445,6 +460,7 @@ runSteward := Def.taskDyn {
     Seq("--git-ask-pass", s"$home/.github/askpass/$gitHubLogin.sh"),
     // Seq("--github-app-id", IO.read(gitHubAppDir / "scala-steward.app-id.txt").trim),
     // Seq("--github-app-key-file", s"$gitHubAppDir/scala-steward.private-key.pem"),
+    Seq("--repo-config", s"$projectDir/.scala-steward.conf"),
     Seq("--whitelist", s"$home/.cache/coursier"),
     Seq("--whitelist", s"$home/.cache/JNA"),
     Seq("--whitelist", s"$home/.cache/mill"),

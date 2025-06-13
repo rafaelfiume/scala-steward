@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,14 @@
 package org.scalasteward.core.forge.bitbucketserver
 
 import cats.MonadThrow
-import cats.syntax.all._
+import cats.syntax.all.*
 import org.http4s.{Request, Uri}
 import org.scalasteward.core.application.Config.BitbucketServerCfg
 import org.scalasteward.core.data.Repo
 import org.scalasteward.core.forge.ForgeApiAlg
 import org.scalasteward.core.forge.bitbucketserver.Json.{PR, Reviewer, User}
+import org.scalasteward.core.forge.data.*
 import org.scalasteward.core.forge.data.PullRequestState.Open
-import org.scalasteward.core.forge.data._
 import org.scalasteward.core.git.Branch
 import org.scalasteward.core.util.HttpJsonClient
 import org.typelevel.log4cats.Logger

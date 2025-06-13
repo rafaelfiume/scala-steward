@@ -1,34 +1,30 @@
 package org.scalasteward.core.forge.gitlab
 
-import cats.syntax.semigroupk._
+import cats.syntax.semigroupk.*
 import io.circe.Json
-import io.circe.literal._
-import io.circe.parser._
+import io.circe.literal.*
+import io.circe.parser.*
 import munit.CatsEffectSuite
 import org.http4s.HttpApp
-import org.http4s.circe._
+import org.http4s.circe.*
 import org.http4s.dsl.Http4sDsl
 import org.http4s.headers.Allow
-import org.http4s.implicits._
+import org.http4s.syntax.literals.*
 import org.scalasteward.core.TestInstances.{dummyRepoCache, ioLogger}
-import org.scalasteward.core.TestSyntax._
+import org.scalasteward.core.TestSyntax.*
 import org.scalasteward.core.application.Config.GitLabCfg
 import org.scalasteward.core.data.{Repo, RepoData, UpdateData}
-import org.scalasteward.core.forge.data._
-import org.scalasteward.core.forge.gitlab.GitLabJsonCodec._
+import org.scalasteward.core.forge.data.*
+import org.scalasteward.core.forge.gitlab.GitLabJsonCodec.*
 import org.scalasteward.core.forge.{ForgeSelection, ForgeType}
 import org.scalasteward.core.git.{Branch, Sha1}
 import org.scalasteward.core.mock.MockConfig.config
 import org.scalasteward.core.mock.MockContext.context.httpJsonClient
-import org.scalasteward.core.mock.{MockEff, MockState}
+import org.scalasteward.core.mock.MockForgeAuthAlg.noAuth
+import org.scalasteward.core.mock.{MockEff, MockEffOps, MockState}
 import org.scalasteward.core.repoconfig.RepoConfig
-import org.typelevel.ci.CIStringSyntax
 
 class GitLabApiAlgTest extends CatsEffectSuite with Http4sDsl[MockEff] {
-
-  private val user = AuthenticatedUser("user", "pass")
-  private val userM = MockEff.pure(user)
-
   object MergeWhenPipelineSucceedsMatcher
       extends QueryParamDecoderMatcher[Boolean]("merge_when_pipeline_succeeds")
 
@@ -36,15 +32,6 @@ class GitLabApiAlgTest extends CatsEffectSuite with Http4sDsl[MockEff] {
 
   object UsernameMatcher extends QueryParamDecoderMatcher[String]("username")
 
-  private val auth = HttpApp[MockEff] { request =>
-    (request: @unchecked) match {
-      case _
-          if !request.headers
-            .get(ci"Private-Token")
-            .exists(nel => nel.head.value == user.accessToken) =>
-        Forbidden()
-    }
-  }
   private val httpApp = HttpApp[MockEff] {
 
     case POST -> Root / "projects" / "foo/bar" / "fork" =>
@@ -119,7 +106,7 @@ class GitLabApiAlgTest extends CatsEffectSuite with Http4sDsl[MockEff] {
     case _ =>
       NotFound()
   }
-  private val state = MockState.empty.copy(clientResponses = auth <+> httpApp)
+  private val state = MockState.empty.copy(clientResponses = httpApp)
 
   private val gitlabApiAlg = ForgeSelection.forgeApiAlg[MockEff](
     config.forgeCfg.copy(tpe = ForgeType.GitLab),
@@ -128,7 +115,7 @@ class GitLabApiAlgTest extends CatsEffectSuite with Http4sDsl[MockEff] {
       requiredReviewers = None,
       removeSourceBranch = false
     ),
-    userM
+    noAuth.authenticateApi
   )
 
   private val gitlabApiAlgNoFork = ForgeSelection.forgeApiAlg[MockEff](
@@ -138,7 +125,7 @@ class GitLabApiAlgTest extends CatsEffectSuite with Http4sDsl[MockEff] {
       requiredReviewers = None,
       removeSourceBranch = false
     ),
-    userM
+    noAuth.authenticateApi
   )
 
   private val gitlabApiAlgAutoMerge = ForgeSelection.forgeApiAlg[MockEff](
@@ -148,7 +135,7 @@ class GitLabApiAlgTest extends CatsEffectSuite with Http4sDsl[MockEff] {
       requiredReviewers = None,
       removeSourceBranch = false
     ),
-    userM
+    noAuth.authenticateApi
   )
 
   private val gitlabApiAlgRemoveSourceBranch = ForgeSelection.forgeApiAlg[MockEff](
@@ -158,7 +145,7 @@ class GitLabApiAlgTest extends CatsEffectSuite with Http4sDsl[MockEff] {
       requiredReviewers = None,
       removeSourceBranch = true
     ),
-    userM
+    noAuth.authenticateApi
   )
 
   private val gitlabApiAlgLessReviewersRequired = ForgeSelection.forgeApiAlg[MockEff](
@@ -168,7 +155,7 @@ class GitLabApiAlgTest extends CatsEffectSuite with Http4sDsl[MockEff] {
       requiredReviewers = Some(0),
       removeSourceBranch = false
     ),
-    userM
+    noAuth.authenticateApi
   )
 
   private val gitlabApiAlgWithAssigneeAndReviewers = ForgeSelection.forgeApiAlg[MockEff](
@@ -178,7 +165,7 @@ class GitLabApiAlgTest extends CatsEffectSuite with Http4sDsl[MockEff] {
       requiredReviewers = Some(0),
       removeSourceBranch = false
     ),
-    userM
+    noAuth.authenticateApi
   )
 
   private val data = UpdateData(
@@ -291,7 +278,7 @@ class GitLabApiAlgTest extends CatsEffectSuite with Http4sDsl[MockEff] {
           MethodNotAllowed(Allow(OPTIONS, GET, HEAD))
       }
     }
-    val localState = MockState.empty.copy(clientResponses = auth <+> localApp <+> httpApp)
+    val localState = MockState.empty.copy(clientResponses = localApp <+> httpApp)
 
     val prOut = gitlabApiAlgNoFork
       .createPullRequest(Repo("foo", "bar"), newPRData)
@@ -330,7 +317,7 @@ class GitLabApiAlgTest extends CatsEffectSuite with Http4sDsl[MockEff] {
           BadRequest(s"Cannot set requiredReviewers to $requiredReviewers")
       }
     }
-    val localState = MockState.empty.copy(clientResponses = auth <+> localApp <+> httpApp)
+    val localState = MockState.empty.copy(clientResponses = localApp <+> httpApp)
 
     val prOut = gitlabApiAlgLessReviewersRequired
       .createPullRequest(Repo("foo", "bar"), newPRData)

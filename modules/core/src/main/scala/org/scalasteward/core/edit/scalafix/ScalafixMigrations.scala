@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,11 @@
 package org.scalasteward.core.edit.scalafix
 
 import io.circe.Decoder
-import io.circe.generic.extras.Configuration
-import io.circe.generic.extras.semiauto._
+import io.circe.generic.semiauto.*
 
-final case class ScalafixMigrations(
-    migrations: List[ScalafixMigration] = List.empty
-)
+final case class ScalafixMigrations(migrations: List[ScalafixMigration])
 
 object ScalafixMigrations {
-  implicit val configuration: Configuration =
-    Configuration.default.withDefaults
-
   implicit val scalafixMigrationsDecoder: Decoder[ScalafixMigrations] =
-    deriveConfiguredDecoder
+    deriveDecoder
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,10 @@ package org.scalasteward.core.repoconfig
 
 import cats.{Eq, Monoid}
 import io.circe.Codec
-import io.circe.generic.extras.Configuration
-import io.circe.generic.extras.semiauto.deriveConfiguredCodec
+import io.circe.generic.semiauto.deriveCodec
 
 final case class ScalafmtConfig(
-    runAfterUpgrading: Option[Boolean] = None
+    private val runAfterUpgrading: Option[Boolean] = None
 ) {
   def runAfterUpgradingOrDefault: Boolean =
     runAfterUpgrading.getOrElse(ScalafmtConfig.defaultRunAfterUpgrading)
@@ -34,11 +33,8 @@ object ScalafmtConfig {
   implicit val scalafmtConfigEq: Eq[ScalafmtConfig] =
     Eq.fromUniversalEquals
 
-  implicit val scalafmtConfigConfiguration: Configuration =
-    Configuration.default.withDefaults
-
   implicit val scalafmtConfigCodec: Codec[ScalafmtConfig] =
-    deriveConfiguredCodec
+    deriveCodec
 
   implicit val scalafmtConfigMonoid: Monoid[ScalafmtConfig] =
     Monoid.instance(

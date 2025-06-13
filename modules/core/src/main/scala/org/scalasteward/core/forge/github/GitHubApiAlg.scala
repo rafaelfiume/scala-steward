@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@
 package org.scalasteward.core.forge.github
 
 import cats.MonadThrow
-import cats.syntax.all._
+import cats.syntax.all.*
 import io.circe.Json
 import org.http4s.{Request, Uri}
 import org.scalasteward.core.data.Repo
 import org.scalasteward.core.forge.ForgeApiAlg
-import org.scalasteward.core.forge.data._
-import org.scalasteward.core.forge.github.GitHubException._
+import org.scalasteward.core.forge.data.*
+import org.scalasteward.core.forge.github.GitHubException.*
 import org.scalasteward.core.git.Branch
 import org.scalasteward.core.util.HttpJsonClient
 import org.typelevel.log4cats.Logger
@@ -89,11 +89,11 @@ final class GitHubApiAlg[F[_]](
     } yield ()
   }
 
-  /** https://docs.github.com/en/rest/repos/branches?apiVersion=2022-11-28#get-branch */
+  /** https://docs.github.com/en/rest/branches/branches?apiVersion=2022-11-28#get-a-branch */
   override def getBranch(repo: Repo, branch: Branch): F[BranchOut] =
     client.get(url.branches(repo, branch), modify)
 
-  /** https://docs.github.com/en/rest/repos?apiVersion=2022-11-28#get */
+  /** https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#get-a-repository */
   override def getRepo(repo: Repo): F[RepoOut] =
     client.get[RepoOut](url.repos(repo), modify).flatTap { repoOut =>
       F.raiseWhen(repoOut.archived)(RepositoryArchived(repo))
@@ -103,7 +103,7 @@ final class GitHubApiAlg[F[_]](
   override def listPullRequests(repo: Repo, head: String, base: Branch): F[List[PullRequestOut]] =
     client.get(url.listPullRequests(repo, head, base), modify)
 
-  /** https://docs.github.com/en/rest/pulls?apiVersion=2022-11-28#update-a-pull-request */
+  /** https://docs.github.com/en/rest/pulls/pulls?apiVersion=2022-11-28#update-a-pull-request */
   override def closePullRequest(repo: Repo, number: PullRequestNumber): F[PullRequestOut] =
     client.patchWithBody[PullRequestOut, UpdateState](
       url.pull(repo, number),
@@ -111,7 +111,8 @@ final class GitHubApiAlg[F[_]](
       modify
     )
 
-  /** https://docs.github.com/en/rest/issues?apiVersion=2022-11-28#create-an-issue-comment */
+  /** https://docs.github.com/en/rest/issues/comments?apiVersion=2022-11-28#create-an-issue-comment
+    */
   override def commentPullRequest(
       repo: Repo,
       number: PullRequestNumber,
@@ -120,8 +121,7 @@ final class GitHubApiAlg[F[_]](
     client
       .postWithBody(url.comments(repo, number), Comment(comment), modify)
 
-  /** https://docs.github.com/en/rest/reference/issues?apiVersion=2022-11-28#add-labels-to-an-issue
-    */
+  /** https://docs.github.com/en/rest/issues/labels?apiVersion=2022-11-28#add-labels-to-an-issue */
   private def labelPullRequest(
       repo: Repo,
       number: PullRequestNumber,

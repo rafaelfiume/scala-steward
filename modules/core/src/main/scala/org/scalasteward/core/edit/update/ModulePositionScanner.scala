@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ object ModulePositionScanner {
   private def sbtModuleIdRegex(dependency: Dependency): Regex = {
     val g = Regex.quote(dependency.groupId.value)
     val a = Regex.quote(dependency.artifactId.name)
-    raw""""($g)"\s*%+\s*"($a)"\s*%+\s*(.*)""".r
+    raw""""($g)"\s*%+\s*"($a)"\s*%+\s*([^\s/]*)""".r
   }
 
   private def findMillDependency(

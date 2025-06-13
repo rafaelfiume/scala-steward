@@ -1,15 +1,15 @@
 package org.scalasteward.core
 
 import cats.effect.IO
-import eu.timepit.refined.scalacheck.numeric._
+import eu.timepit.refined.scalacheck.numeric.*
 import eu.timepit.refined.types.numeric.NonNegInt
 import org.scalacheck.{Arbitrary, Cogen, Gen}
-import org.scalasteward.core.TestSyntax._
-import org.scalasteward.core.data._
+import org.scalasteward.core.TestSyntax.*
+import org.scalasteward.core.data.*
 import org.scalasteward.core.git.Sha1
 import org.scalasteward.core.repocache.RepoCache
+import org.scalasteward.core.repoconfig.*
 import org.scalasteward.core.repoconfig.PullRequestFrequency.{Asap, Timespan}
-import org.scalasteward.core.repoconfig._
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 import scala.concurrent.duration.FiniteDuration
@@ -150,9 +150,9 @@ object TestInstances {
         limit <- Arbitrary.arbitrary[Option[NonNegInt]]
         fileExtensions <- Arbitrary.arbitrary[Option[List[String]]]
       } yield UpdatesConfig(
-        pin = pin,
-        allow = allow,
-        ignore = ignore,
+        pin = Some(pin),
+        allow = Some(allow),
+        ignore = Some(ignore),
         limit = limit,
         fileExtensions = fileExtensions
       )
@@ -161,10 +161,10 @@ object TestInstances {
   implicit val repoConfigArbitrary: Arbitrary[RepoConfig] =
     Arbitrary(
       for {
-        commits <- Arbitrary.arbitrary[CommitsConfig]
-        pullRequests <- Arbitrary.arbitrary[PullRequestsConfig]
-        scalafmt <- Arbitrary.arbitrary[ScalafmtConfig]
-        updates <- Arbitrary.arbitrary[UpdatesConfig]
+        commits <- Arbitrary.arbitrary[Option[CommitsConfig]]
+        pullRequests <- Arbitrary.arbitrary[Option[PullRequestsConfig]]
+        scalafmt <- Arbitrary.arbitrary[Option[ScalafmtConfig]]
+        updates <- Arbitrary.arbitrary[Option[UpdatesConfig]]
         updatePullRequests <- Arbitrary.arbitrary[Option[PullRequestUpdateStrategy]]
       } yield RepoConfig(
         commits = commits,

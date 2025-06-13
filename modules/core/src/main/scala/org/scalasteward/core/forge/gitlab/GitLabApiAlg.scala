@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2023 Scala Steward contributors
+ * Copyright 2018-2025 Scala Steward contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,15 +18,15 @@ package org.scalasteward.core.forge.gitlab
 
 import cats.Parallel
 import cats.effect.Temporal
-import cats.syntax.all._
-import io.circe._
-import io.circe.generic.semiauto._
-import io.circe.syntax._
+import cats.syntax.all.*
+import io.circe.*
+import io.circe.generic.semiauto.*
+import io.circe.syntax.*
 import org.http4s.{Request, Status, Uri}
 import org.scalasteward.core.application.Config.{ForgeCfg, GitLabCfg}
 import org.scalasteward.core.data.Repo
 import org.scalasteward.core.forge.ForgeApiAlg
-import org.scalasteward.core.forge.data._
+import org.scalasteward.core.forge.data.*
 import org.scalasteward.core.git.{Branch, Sha1}
 import org.scalasteward.core.util.uri.uriDecoder
 import org.scalasteward.core.util.{intellijThisImportIsUsed, HttpJsonClient, UnexpectedResponse}
@@ -166,7 +166,7 @@ final class GitLabApiAlg[F[_]: Parallel](
     logger: Logger[F],
     F: Temporal[F]
 ) extends ForgeApiAlg[F] {
-  import GitLabJsonCodec._
+  import GitLabJsonCodec.*
 
   private val url = new Url(forgeCfg.apiHost)
 
@@ -215,7 +215,7 @@ final class GitLabApiAlg[F[_]: Parallel](
         .get[MergeRequestOut](url.existingMergeRequest(repo, number), modify)
         .flatMap {
           case mr if mr.mergeStatus =!= GitLabMergeStatus.Checking => F.pure(mr)
-          case mr if retries > 0 =>
+          case mr if retries > 0                                   =>
             logger.info(
               s"Merge request is still in '${mr.mergeStatus}' state. We will check merge request status in $initialDelay again. " +
                 s"Remaining retries count is $retries"

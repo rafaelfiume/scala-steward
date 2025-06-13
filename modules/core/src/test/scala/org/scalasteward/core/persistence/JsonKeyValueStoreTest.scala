@@ -1,12 +1,12 @@
 package org.scalasteward.core.persistence
 
 import cats.effect.unsafe.implicits.global
-import cats.syntax.all._
+import cats.syntax.all.*
 import munit.FunSuite
 import org.scalasteward.core.mock.MockConfig.config
-import org.scalasteward.core.mock.MockContext.context._
+import org.scalasteward.core.mock.MockContext.context.*
 import org.scalasteward.core.mock.MockState.TraceEntry.Cmd
-import org.scalasteward.core.mock.{MockEff, MockState}
+import org.scalasteward.core.mock.{MockEff, MockEffOps, MockState}
 
 class JsonKeyValueStoreTest extends FunSuite {
   test("put, get") {
