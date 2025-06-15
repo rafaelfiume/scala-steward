@@ -2,7 +2,7 @@
 
 LOGIN="rafaelfiume"
 EMAIL="rafael.fiume@yahoo.it"
-STEWARD_DIR="$HOME/rf-workspace/scala-steward/"
+STEWARD_DIR="$HOME/workspace/scala-steward/"
 
 sbt stage
 
@@ -13,5 +13,5 @@ sbt stage
   --git-author-email ${EMAIL} \
   --forge-api-host "https://api.github.com" \
   --forge-login ${LOGIN} \
-  --git-ask-pass "$HOME/.github/tokens/rafaelfiume.sh" \
+  --git-ask-pass "$HOME/.github/tokens/git-ask-pass.sh" \
   --do-not-fork
