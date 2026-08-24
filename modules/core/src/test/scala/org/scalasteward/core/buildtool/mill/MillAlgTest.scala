@@ -2,6 +2,7 @@ package org.scalasteward.core.buildtool.mill
 
 import cats.effect.unsafe.implicits.global
 import munit.FunSuite
+import org.scalasteward.core.BuildInfo
 import org.scalasteward.core.buildtool.BuildRoot
 import org.scalasteward.core.buildtool.mill.MillAlg.extractDeps
 import org.scalasteward.core.data.{Repo, Version}
@@ -21,6 +22,9 @@ class MillAlgTest extends FunSuite {
     val state = millAlg.getDependencies(buildRoot).runS(initial).unsafeRunSync()
     val expected = initial.copy(
       trace = Vector(
+        Cmd("read", s"$buildRootDir/build.mill"),
+        Cmd("read", s"$buildRootDir/build.mill.scala"),
+        Cmd("read", s"$buildRootDir/build.sc"),
         Cmd("read", s"$buildRootDir/.mill-version"),
         Cmd("read", s"$buildRootDir/.config/mill-version"),
         Cmd("write", predef),
@@ -41,7 +45,7 @@ class MillAlgTest extends FunSuite {
       "--no-server",
       "--disable-ticker",
       "--import",
-      "ivy:org.scala-steward::scala-steward-mill-plugin::0.18.0",
+      s"ivy:org.scala-steward::${BuildInfo.millPluginArtifactName}::${BuildInfo.millPluginVersion}",
       "show",
       extractDeps
     )
@@ -52,8 +56,13 @@ class MillAlgTest extends FunSuite {
     val state = millAlg.getDependencies(buildRoot).runS(initial).unsafeRunSync()
     val expected = initial.copy(
       trace = Vector(
+        Cmd("read", s"$buildRootDir/build.mill"),
+        Cmd("read", s"$buildRootDir/build.mill.scala"),
+        Cmd("read", s"$buildRootDir/build.sc"),
         Cmd("read", s"$buildRootDir/.mill-version"),
         millCmd,
+        Cmd("test", "-f", s"$buildRootDir/build.mill"),
+        Cmd("test", "-f", s"$buildRootDir/build.mill.scala"),
         Cmd("test", "-f", s"$buildRootDir/build.sc"),
         Cmd("read", s"$buildRootDir/build.sc")
       )
@@ -72,7 +81,7 @@ class MillAlgTest extends FunSuite {
       "--ticker",
       "false",
       "--import",
-      "ivy:org.scala-steward::scala-steward-mill-plugin::0.18.0",
+      s"ivy:org.scala-steward::${BuildInfo.millPluginArtifactName}::${BuildInfo.millPluginVersion}",
       "show",
       extractDeps
     )
@@ -83,10 +92,46 @@ class MillAlgTest extends FunSuite {
     val state = millAlg.getDependencies(buildRoot).runS(initial).unsafeRunSync()
     val expected = initial.copy(
       trace = Vector(
+        Cmd("read", s"$buildRootDir/build.mill"),
+        Cmd("read", s"$buildRootDir/build.mill.scala"),
+        Cmd("read", s"$buildRootDir/build.sc"),
         Cmd("read", s"$buildRootDir/.mill-version"),
         millCmd,
+        Cmd("test", "-f", s"$buildRootDir/build.mill"),
+        Cmd("test", "-f", s"$buildRootDir/build.mill.scala"),
         Cmd("test", "-f", s"$buildRootDir/build.sc"),
         Cmd("read", s"$buildRootDir/build.sc")
+      )
+    )
+    assertEquals(state, expected)
+  }
+
+  test("getDependencies, 1 <= version") {
+    val repo = Repo("mill-alg", "test-3")
+    val buildRoot = BuildRoot(repo, ".")
+    val buildRootDir = workspaceAlg.buildRootDir(buildRoot).unsafeRunSync()
+    val millCmd = Cmd.execSandboxed(
+      buildRootDir,
+      "mill",
+      "--no-server",
+      "--ticker",
+      "false",
+      "--import",
+      s"ivy:org.scala-steward::${BuildInfo.millPluginArtifactName}::${BuildInfo.millPluginVersion}",
+      "show",
+      extractDeps
+    )
+    val initial = MockState.empty
+      .copy(commandOutputs = Map(millCmd -> Right(List("""{"modules":[]}"""))))
+      .addFiles(buildRootDir / "build.mill" -> "//| mill-version: 1.0.6")
+      .unsafeRunSync()
+    val state = millAlg.getDependencies(buildRoot).runS(initial).unsafeRunSync()
+    val expected = initial.copy(
+      trace = Vector(
+        Cmd("read", s"$buildRootDir/build.mill"),
+        millCmd,
+        Cmd("test", "-f", s"$buildRootDir/build.mill"),
+        Cmd("read", s"$buildRootDir/build.mill")
       )
     )
     assertEquals(state, expected)

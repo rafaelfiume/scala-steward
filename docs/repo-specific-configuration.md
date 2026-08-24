@@ -109,6 +109,15 @@ updates.pin  = [ { groupId = "com.example", artifactId="foo", version = "1.1." }
 # Defaults to empty `[]` which mean Scala Steward will not ignore dependencies.
 updates.ignore = [ { groupId = "org.acme", artifactId="foo", version = "1.0" } ]
 
+# Scala Steward will ignore dependency update versions while they are newer than
+# the specified minimum age.
+#
+# Scala Steward records the first time it sees any artefact version and calculates
+# the artefact version's age from that time.
+updates.cooldown = {
+  minimumAge: "7 days"
+}
+
 # The dependencies which match the given pattern are retracted. Their existing pull-request will be closed.
 #
 # Each entry must have a `reason`, a `doc` URL and a list of dependency patterns.
@@ -135,7 +144,7 @@ updates.allowPreReleases  = [ { groupId = "com.example", artifactId="foo" } ]
 updates.limit = 5
 
 # The extensions of files that should be updated.
-# Default: [".mill",".sbt",".sbt.shared",".sc",".scala",".scalafmt.conf",".sdkmanrc",".yml","build.properties","libs.versions.toml","mill-version","pom.xml"]
+# Default: [".mill",".sbt",".sbt.shared",".sc",".scala",".scalafmt.conf",".sdkmanrc",".yml","build.properties","libs.versions.toml","mill-version","mise.toml","mise/config.toml","pom.xml"]
 updates.fileExtensions = [".scala", ".sbt", ".sbt.shared", ".sc", ".yml", ".md", ".markdown", ".txt"]
 
 # If "on-conflicts", Scala Steward will update the PR it created to resolve conflicts as
@@ -172,7 +181,7 @@ postUpdateHooks = [{
 }]
 
 # You can override some config options for dependencies that matches the given pattern.
-# Currently, "pullRequests" can be overridden.
+# Currently, "pullRequests" and cooldown can be overridden.
 # Each pattern must have `groupId`, and may have `artifactId` and `version`.
 # First-matched entry is used.
 # More-specific entry should be placed before less-specific entry.
@@ -182,6 +191,11 @@ dependencyOverrides = [
   {
     dependency = { groupId = "com.example", artifactId = "foo", version = "2." },
     pullRequests = { frequency = "1 day" },
+  },
+  {
+    dependency = { groupId = "com.my-company" },
+    pullRequests = {},
+    cooldown = { minimumAge = "2 days" },
   },
   {
     dependency = { groupId = "com.example", artifactId = "foo" },

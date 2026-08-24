@@ -21,12 +21,13 @@ import cats.syntax.all.*
 import io.circe.*
 import io.circe.syntax.*
 import org.scalasteward.core.data.{SemVer, Update}
+
 import scala.util.matching.Regex
 
 final case class PullRequestUpdateFilter private (
-    group: Option[String] = None,
-    artifact: Option[String] = None,
-    version: Option[SemVer.Change] = None
+    group: Option[String],
+    artifact: Option[String],
+    version: Option[SemVer.Change]
 ) {
 
   /** Returns `true` if an update falls into this filter; returns `false` otherwise.
@@ -47,8 +48,7 @@ final case class PullRequestUpdateFilter private (
   private def isMatchedVersion(versionType: SemVer.Change, update: Update.ForArtifactId): Boolean =
     (SemVer.parse(update.currentVersion.value), SemVer.parse(update.nextVersion.value)).tupled
       .flatMap { case (current, next) => SemVer.getChangeEarly(current, next) }
-      .map(_.render === versionType.render)
-      .getOrElse(false)
+      .exists(_.render === versionType.render)
 
 }
 

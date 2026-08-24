@@ -67,7 +67,7 @@ class VersionPositionScannerTest extends FunSuite {
     val d = "org.scala-js".g % "sbt-scalajs".a % "0.6.23"
     val fd = FileData(
       "plugins.sbt",
-      s"""addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.4")
+      s"""addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.6.2")
          |addSbtPlugin("${d.groupId}" % "${d.artifactId.name}" % "${d.version}")
          |addSbtPlugin("org.scoverage" % "sbt-scoverage" % "2.2.0")""".stripMargin
     )
@@ -157,6 +157,54 @@ class VersionPositionScannerTest extends FunSuite {
     val fd = FileData("test.yml", "1.3.0-1")
     val obtained = VersionPositionScanner.findPositions(version, fd)
     val expected = List()
+    assertEquals(obtained, expected)
+  }
+
+  test("mise.toml scala") {
+    val version = "2.13.16".v
+    val fd = FileData(
+      "mise.toml",
+      s"""[tools]
+         |java = "zulu-21"
+         |scala = "${version}"
+         |sbt = "1.11.7"""".stripMargin
+    )
+    val obtained = VersionPositionScanner.findPositions(version, fd)
+    val expected = List(
+      Unclassified(Substring.Position(fd.path, 34, version.value), "scala = \"")
+    )
+    assertEquals(obtained, expected)
+  }
+
+  test("mise.toml sbt") {
+    val version = "1.11.7".v
+    val fd = FileData(
+      "mise.toml",
+      s"""[tools]
+         |java = "zulu-21"
+         |scala = "2.13.18"
+         |sbt = "${version}"""".stripMargin
+    )
+    val obtained = VersionPositionScanner.findPositions(version, fd)
+    val expected = List(
+      Unclassified(Substring.Position(fd.path, 50, version.value), "sbt = \"")
+    )
+    assertEquals(obtained, expected)
+  }
+
+  test("mise.toml with latest should not match") {
+    val version = "1.11.7".v
+    val fd = FileData(
+      "mise.toml",
+      s"""[tools]
+         |java = "zulu-21"
+         |scala = "latest"
+         |sbt = "${version}"""".stripMargin
+    )
+    val obtained = VersionPositionScanner.findPositions(version, fd)
+    val expected = List(
+      Unclassified(Substring.Position(fd.path, 49, version.value), "sbt = \"")
+    )
     assertEquals(obtained, expected)
   }
 }

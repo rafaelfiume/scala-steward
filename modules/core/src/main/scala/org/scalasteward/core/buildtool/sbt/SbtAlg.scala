@@ -84,8 +84,9 @@ final class SbtAlg[F[_]](defaultResolvers: List[Resolver], ignoreOptsFiles: Bool
     for {
       _ <- Resource.unit[F]
       pluginVersion = maybeSbtVersion match {
-        case Some(v) if v < Version("1.3.11") => "1_0_0"
-        case _                                => "1_3_11"
+        case Some(v) if v < Version("1.3.11")    => "1_0_0"
+        case Some(v) if v.value.startsWith("2.") => "2_0_0"
+        case _                                   => "1_3_11"
       }
       plugin <- Resource.eval(stewardPlugin(pluginVersion))
       _ <- List
@@ -128,7 +129,7 @@ final class SbtAlg[F[_]](defaultResolvers: List[Resolver], ignoreOptsFiles: Bool
   private def latestSbtScalafixVersion: F[Option[Version]] =
     versionsCache
       .getVersions(Scope(sbtScalafixDependency, defaultResolvers), None)
-      .map(_.lastOption)
+      .map(_.lastOption.map(_.version))
 
   private def runBuildMigration(buildRoot: BuildRoot, migration: ScalafixMigration): F[Unit] =
     for {
@@ -152,6 +153,7 @@ final class SbtAlg[F[_]](defaultResolvers: List[Resolver], ignoreOptsFiles: Bool
       val command =
         Nel.of(
           "sbt",
+          "--server",
           "-Dsbt.color=false",
           "-Dsbt.log.noformat=true",
           "-Dsbt.supershell=false",

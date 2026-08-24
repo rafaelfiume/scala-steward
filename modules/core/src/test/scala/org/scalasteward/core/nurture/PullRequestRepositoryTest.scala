@@ -2,7 +2,6 @@ package org.scalasteward.core.nurture
 
 import cats.Id
 import cats.effect.unsafe.implicits.global
-import java.util.concurrent.atomic.AtomicInteger
 import munit.FunSuite
 import org.http4s.syntax.literals.*
 import org.scalasteward.core.TestSyntax.*
@@ -16,7 +15,8 @@ import org.scalasteward.core.mock.MockState.TraceEntry
 import org.scalasteward.core.mock.MockState.TraceEntry.Cmd
 import org.scalasteward.core.mock.{MockEff, MockEffOps, MockState}
 import org.scalasteward.core.repoconfig.{RetractedArtifact, UpdatePattern, VersionPattern}
-import org.scalasteward.core.util.Nel
+
+import java.util.concurrent.atomic.AtomicInteger
 
 class PullRequestRepositoryTest extends FunSuite {
   private def checkTrace(state: MockState, trace: Vector[TraceEntry]): Unit =
@@ -80,7 +80,7 @@ class PullRequestRepositoryTest extends FunSuite {
 
   test("getObsoleteOpenPullRequests for single update") {
     val data = openPRFor(portableScala)
-    val nextUpdate = portableScala.copy(newerVersions = Nel.of("1.0.1".v))
+    val nextUpdate = portableScala.copy(nextVersion = "1.0.1".v)
 
     val (emptyResult, result, closedResult) =
       executeOnTestRepo(expectedStoreOps = Seq("read", "write", "write")) { repo =>
@@ -124,7 +124,7 @@ class PullRequestRepositoryTest extends FunSuite {
 
   test("getRetractedPullRequests with no retractions defined") {
     val (_, obtained) = beforeAndAfterPRCreation(portableScala) { repo =>
-      pullRequestRepository.getRetractedPullRequests(repo, List.empty)
+      pullRequestRepository.getRetractedOpenPullRequests(repo, List.empty)
     }
     assertEquals(obtained, List.empty[(PullRequestData[Id], RetractedArtifact)])
   }
@@ -142,7 +142,7 @@ class PullRequestRepositoryTest extends FunSuite {
       )
     )
     val (_, obtained) = beforeAndAfterPRCreation(portableScala) { repo =>
-      pullRequestRepository.getRetractedPullRequests(repo, List(retractedPortableScala))
+      pullRequestRepository.getRetractedOpenPullRequests(repo, List(retractedPortableScala))
     }
     assertEquals(obtained.size, 1)
     assertEquals(obtained.head._1.update, portableScala)
@@ -162,7 +162,7 @@ class PullRequestRepositoryTest extends FunSuite {
       )
     )
     val (_, obtained) = beforeAndAfterPRCreation(portableScala) { repo =>
-      pullRequestRepository.getRetractedPullRequests(repo, List(retractedPortableScala))
+      pullRequestRepository.getRetractedOpenPullRequests(repo, List(retractedPortableScala))
     }
     assertEquals(obtained, List.empty[(PullRequestData[Id], RetractedArtifact)])
   }

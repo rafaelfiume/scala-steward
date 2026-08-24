@@ -3,6 +3,7 @@ package org.scalasteward.core
 import org.scalasteward.core.data.*
 import org.scalasteward.core.data.Resolver.IvyRepository
 import org.scalasteward.core.util.Nel
+import org.scalasteward.core.coursier.VersionsCache.VersionWithFirstSeen
 
 object TestSyntax {
   val sbtPluginReleases: IvyRepository = {
@@ -19,6 +20,7 @@ object TestSyntax {
     def g: GroupId = GroupId(self)
     def a: ArtifactId = ArtifactId(self)
     def v: Version = Version(self)
+    def vfs: VersionWithFirstSeen = VersionWithFirstSeen(Version(self), None)
   }
 
   implicit class StringTupleOps(private val self: (String, String)) extends AnyVal {
@@ -50,6 +52,8 @@ object TestSyntax {
   implicit class DependencyOps(private val self: Dependency) extends AnyVal {
     def %(configurations: String): Dependency = self.copy(configurations = Some(configurations))
     def %>(nextVersion: String): (Dependency, String) = (self, nextVersion)
+    def %>(nextVersion: VersionWithFirstSeen): (Dependency, VersionWithFirstSeen) =
+      (self, nextVersion)
     def %>(newerVersions: Nel[String]): (Dependency, Nel[String]) = (self, newerVersions)
     def cross: CrossDependency = CrossDependency(self)
   }
@@ -76,34 +80,44 @@ object TestSyntax {
       private val self: (Dependency, String)
   ) extends AnyVal {
     def single: Update.ForArtifactId =
-      Update.ForArtifactId(CrossDependency(self._1), Nel.of(self._2.v))
+      Update.ForArtifactId(ArtifactForUpdate(CrossDependency(self._1)), self._2.v)
   }
 
   implicit class DependencyAndNewerVersionsOps(
       private val self: (Dependency, Nel[String])
   ) extends AnyVal {
-    def single: Update.ForArtifactId =
-      Update.ForArtifactId(CrossDependency(self._1), self._2.map(_.v))
+    def single: ArtifactUpdateCandidates =
+      ArtifactUpdateCandidates(ArtifactForUpdate(CrossDependency(self._1)), self._2.map(_.vfs))
   }
 
   implicit class DependenciesAndNextVersionOps(
       private val self: (Nel[Dependency], String)
   ) extends AnyVal {
     def single: Update.ForArtifactId =
-      Update.ForArtifactId(CrossDependency(self._1), Nel.of(self._2.v))
+      Update.ForArtifactId(ArtifactForUpdate(CrossDependency(self._1)), self._2.v)
+  }
+
+  implicit class DependencyAndNextVersionWithFirstSeenOps(
+      private val self: (Dependency, VersionWithFirstSeen)
+  ) extends AnyVal {
+    def single: ArtifactUpdateCandidates =
+      ArtifactUpdateCandidates(ArtifactForUpdate(CrossDependency(self._1)), Nel.of(self._2))
   }
 
   implicit class GroupIdAndArtifactIdsAndVersionAndNextVersionOps(
       private val self: (GroupId, Nel[ArtifactId], String, String)
   ) extends AnyVal {
+    private def nextVersion: Version = self._4.v
+
     def single: Update.ForArtifactId = {
       val crossDependency = CrossDependency(self._2.map(aId => Dependency(self._1, aId, self._3.v)))
-      Update.ForArtifactId(crossDependency, Nel.of(self._4.v))
+      Update.ForArtifactId(ArtifactForUpdate(crossDependency), nextVersion)
     }
 
     def group: Update.ForGroupId = {
-      val forArtifactIds = self._2.map(aId => ((self._1 % aId % self._3) %> self._4).single)
-      Update.ForGroupId(forArtifactIds)
+      val forArtifactIds =
+        self._2.map(aId => ((self._1 % aId % self._3) %> nextVersion.value).single)
+      Update.ForGroupId(forArtifactIds.map(_.artifactForUpdate), nextVersion)
     }
   }
 
@@ -111,8 +125,32 @@ object TestSyntax {
       private val self: (GroupId, Nel[Nel[ArtifactId]], String, String)
   ) extends AnyVal {
     def group: Update.ForGroupId = {
-      val forArtifactIds = self._2.map(aIds => ((self._1 % aIds % self._3) %> self._4).single)
-      Update.ForGroupId(forArtifactIds)
+      val nextVersion = self._4.v
+      val forArtifactIds =
+        self._2.map(aIds => ((self._1 % aIds % self._3) %> nextVersion.value).single)
+      Update.ForGroupId(forArtifactIds.map(_.artifactForUpdate), nextVersion)
+    }
+  }
+
+  implicit class UpdateForArtifactIdOps(
+      private val self: Update.ForArtifactId
+  ) extends AnyVal {
+    def migration(
+        newerGroupId: Option[GroupId] = None,
+        newerArtifactId: Option[String] = None
+    ): Update.ForArtifactId =
+      self.copy(
+        artifactForUpdate = self.artifactForUpdate
+          .copy(newerGroupId = newerGroupId, newerArtifactId = newerArtifactId)
+      )
+  }
+
+  implicit class ArtifactUpdateCandidatesOps(
+      private val self: ArtifactUpdateCandidates
+  ) extends AnyVal {
+    def asSoleUpdate: Update.ForArtifactId = {
+      require(self.newerVersions.size == 1)
+      self.asSpecificUpdate(self.newerVersions.head)
     }
   }
 }

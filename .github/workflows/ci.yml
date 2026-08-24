@@ -29,22 +29,35 @@ jobs:
       matrix:
         os: [ubuntu-22.04]
         scala: [2.13, 3]
-        java: [temurin@21, temurin@17, temurin@11]
+        java: [temurin@25, temurin@21, temurin@17]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
       - name: Checkout current branch (full)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Setup sbt
         uses: sbt/setup-sbt@v1
 
+      - name: Setup Java (temurin@25)
+        id: setup-java-temurin-25
+        if: matrix.java == 'temurin@25'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: sbt
+
+      - name: sbt update
+        if: matrix.java == 'temurin@25' && steps.setup-java-temurin-25.outputs.cache-hit == 'false'
+        run: sbt +update
+
       - name: Setup Java (temurin@21)
         id: setup-java-temurin-21
         if: matrix.java == 'temurin@21'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
@@ -57,7 +70,7 @@ jobs:
       - name: Setup Java (temurin@17)
         id: setup-java-temurin-17
         if: matrix.java == 'temurin@17'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -67,25 +80,12 @@ jobs:
         if: matrix.java == 'temurin@17' && steps.setup-java-temurin-17.outputs.cache-hit == 'false'
         run: sbt +update
 
-      - name: Setup Java (temurin@11)
-        id: setup-java-temurin-11
-        if: matrix.java == 'temurin@11'
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 11
-          cache: sbt
-
-      - name: sbt update
-        if: matrix.java == 'temurin@11' && steps.setup-java-temurin-11.outputs.cache-hit == 'false'
-        run: sbt +update
-
       - name: Check that workflows are up to date
         run: sbt githubWorkflowCheck
 
       - uses: coursier/setup-action@v1
         with:
-          apps: 'scalafmt:3.8.3'
+          apps: 'scalafmt:3.11.5'
 
       - name: Build project
         run: sbt '++ ${{ matrix.scala }}' validate
@@ -97,15 +97,15 @@ jobs:
 
       - name: Make target directories
         if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
-        run: mkdir -p target modules/docs/.jvm/target modules/dummy/.jvm/target modules/core/.jvm/target modules/benchmark/.jvm/target project/target
+        run: mkdir -p target modules/docs/target modules/dummy/target modules/core/target modules/benchmark/target project/target
 
       - name: Compress target directories
         if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
-        run: tar cf targets.tar target modules/docs/.jvm/target modules/dummy/.jvm/target modules/core/.jvm/target modules/benchmark/.jvm/target project/target
+        run: tar cf targets.tar target modules/docs/target modules/dummy/target modules/core/target modules/benchmark/target project/target
 
       - name: Upload target directories
         if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: target-${{ matrix.os }}-${{ matrix.java }}-${{ matrix.scala }}
           path: targets.tar
@@ -117,21 +117,34 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-22.04]
-        java: [temurin@21]
+        java: [temurin@25]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout current branch (full)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Setup sbt
         uses: sbt/setup-sbt@v1
 
+      - name: Setup Java (temurin@25)
+        id: setup-java-temurin-25
+        if: matrix.java == 'temurin@25'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: sbt
+
+      - name: sbt update
+        if: matrix.java == 'temurin@25' && steps.setup-java-temurin-25.outputs.cache-hit == 'false'
+        run: sbt +update
+
       - name: Setup Java (temurin@21)
         id: setup-java-temurin-21
         if: matrix.java == 'temurin@21'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
@@ -144,7 +157,7 @@ jobs:
       - name: Setup Java (temurin@17)
         id: setup-java-temurin-17
         if: matrix.java == 'temurin@17'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -154,21 +167,8 @@ jobs:
         if: matrix.java == 'temurin@17' && steps.setup-java-temurin-17.outputs.cache-hit == 'false'
         run: sbt +update
 
-      - name: Setup Java (temurin@11)
-        id: setup-java-temurin-11
-        if: matrix.java == 'temurin@11'
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 11
-          cache: sbt
-
-      - name: sbt update
-        if: matrix.java == 'temurin@11' && steps.setup-java-temurin-11.outputs.cache-hit == 'false'
-        run: sbt +update
-
       - name: Download target directories (2.13)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: target-${{ matrix.os }}-${{ matrix.java }}-2.13
 
@@ -178,7 +178,7 @@ jobs:
           rm targets.tar
 
       - name: Download target directories (3)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: target-${{ matrix.os }}-${{ matrix.java }}-3
 
