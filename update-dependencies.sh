@@ -13,7 +13,7 @@ fi
 
 sbt stage
 
-./modules/core/.jvm/target/universal/stage/bin/scala-steward \
+./modules/core/target/universal/stage/bin/scala-steward \
   --workspace "$STEWARD_DIR/workspace" \
   --repos-file "$STEWARD_DIR/repos.md" \
   --repo-config "$STEWARD_DIR/.scala-steward.conf" \
